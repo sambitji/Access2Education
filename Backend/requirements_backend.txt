@@ -1,0 +1,46 @@
+# ============================================================
+# BACKEND - requirements.txt
+# Edu-Platform: FastAPI Server
+# Install: pip install -r requirements.txt
+# ============================================================
+
+# ── Web Framework ─────────────────────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.29.0    # ASGI server
+python-multipart==0.0.9      # File uploads support
+
+# ── Authentication & Security ────────────────────────────────
+python-jose[cryptography]==3.3.0   # JWT tokens
+passlib[bcrypt]==1.7.4             # Password hashing
+bcrypt==4.1.3
+
+# ── Database ─────────────────────────────────────────────────
+motor==3.4.0                 # Async MongoDB driver
+pymongo==4.7.2               # MongoDB driver (sync, for scripts)
+beanie==1.25.0               # MongoDB ODM (like SQLAlchemy for Mongo)
+
+# ── ML Model Loading ─────────────────────────────────────────
+scikit-learn==1.4.2          # Must match ML notebook version
+numpy==1.26.4
+joblib==1.4.2
+
+# ── HTTP Client (DeepSeek API calls) ─────────────────────────
+httpx==0.27.0                # Async HTTP client
+aiohttp==3.9.5               # Alternative async HTTP
+
+# ── Data Validation ──────────────────────────────────────────
+pydantic==2.7.1              # FastAPI uses this internally
+pydantic-settings==2.2.1     # Settings management via .env
+
+# ── Utilities ────────────────────────────────────────────────
+python-dotenv==1.0.1         # .env file loader
+email-validator==2.1.1       # Email validation in Pydantic
+python-slugify==8.0.4        # URL-safe slugs
+
+# ── CORS & Middleware ────────────────────────────────────────
+starlette==0.37.2            # Comes with FastAPI
+
+# ── Testing ──────────────────────────────────────────────────
+pytest==8.2.0
+pytest-asyncio==0.23.6
+httpx==0.27.0                # Also used for test client
