@@ -20,7 +20,7 @@ from datetime import datetime, timezone, timedelta
 
 from database.db import get_db
 from routes.auth import get_current_user, get_current_student
-from Backend.models import AnswerItem, TestSubmitRequest
+from models import AnswerItem, TestSubmitRequest
 
 # Config se settings lo
 try:
@@ -37,8 +37,6 @@ try:
 except Exception as e:
     ML_AVAILABLE = False
     print(f"[test.py] ML not available: {e} — rule-based fallback will be used")
-
-from ..models import AnswerItem, TestSubmitRequest
 
 router = APIRouter(prefix="/test", tags=["Aptitude Test"])
 ML_FEATURES = ["logical", "verbal", "numerical", "memory", "attention"]

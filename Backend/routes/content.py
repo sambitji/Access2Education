@@ -21,7 +21,7 @@ from ML.recommender import get_recommender, Recommender
 
 router = APIRouter(prefix="/content", tags=["Content & Recommendations"])
 
-from Backend.models import CompleteContentRequest, RateContentRequest
+from models import CompleteContentRequest, RateContentRequest
 
 
 # =============================================================
