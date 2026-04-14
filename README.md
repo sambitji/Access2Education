@@ -17,6 +17,7 @@ AI-powered education platform designed to improve learning outcomes and accessib
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+[![Deployed on Vercel](https://img.shields.io/badge/vercel-%23000000.svg?style=for-the-badge&logo=vercel&logoColor=white)](https://access-2-education.vercel.app)
 
 <br/>
 
@@ -176,13 +177,14 @@ npm run dev
 
 ## 🌐 Deployment
 
-### Netlify (Frontend Only)
-This project is configured for seamless deployment on Netlify using **Demo Mode**. 
+### Vercel (Production)
+The project is optimized for deployment on Vercel with a single configuration (`vercel.json`).
 
-1. Push code to GitHub.
-2. Connect to Netlify.
-3. Set environment variable: `VITE_DEMO_MODE=true`.
-4. The site will use `demoApi.js` to simulate all backend functionality in the browser.
+- **Frontend**: [https://access-2-education.vercel.app](https://access-2-education.vercel.app)
+- **Backend API**: [https://access-2-education.vercel.app/api](https://access-2-education.vercel.app/api)
+
+### Netlify (Demo Mode)
+You can still deploy the frontend in isolated **Demo Mode** on Netlify by setting `VITE_DEMO_MODE=true`.
 
 ---
 
