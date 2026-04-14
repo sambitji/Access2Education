@@ -65,7 +65,6 @@ export default function SummaryPanel({ content }) {
             <MessageSquare size={16} className="text-indigo-400"/> AI Assistant
           </div>
           <div className="flex items-center gap-2">
-            <span className="bg-indigo-900/50 text-indigo-400 text-xs px-2 py-0.5 rounded-full">DeepSeek</span>
             {showChat ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
           </div>
         </button>

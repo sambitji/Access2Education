@@ -12,7 +12,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, Union
 import os
 
 
@@ -136,7 +136,7 @@ class Settings(BaseSettings):
     # CORS Settings
     # ──────────────────────────────────────────────────────────
 
-    CORS_ORIGINS: list[str] = Field(
+    CORS_ORIGINS: Union[list[str], str] = Field(
         default=["http://localhost:5173", "http://localhost:3000"],
         description="Frontend ke URLs jo backend se request kar sakte hain"
     )

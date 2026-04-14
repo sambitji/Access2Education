@@ -14,7 +14,7 @@
 #   POST /auth/reset-password   -> Reset password with OTP
 # =============================================================
 
-from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
@@ -235,6 +235,7 @@ async def send_otp_email(email: str, otp: str, name: str):
              summary="Naya student ya teacher register karo")
 @limiter.limit("5/minute")
 async def register(
+    request: Request,
     body: RegisterRequest,
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
@@ -290,6 +291,7 @@ async def register(
              summary="Email + password se login karo")
 @limiter.limit("5/minute")
 async def login(
+    request: Request,
     body: LoginRequest,
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
@@ -438,6 +440,7 @@ async def update_profile(
 @router.post("/forgot-password", summary="OTP email pe bhejo")
 @limiter.limit("3/minute")
 async def forgot_password(
+    request: Request,
     body: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     db: AsyncIOMotorDatabase = Depends(get_db),

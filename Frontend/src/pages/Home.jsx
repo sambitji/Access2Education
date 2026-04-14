@@ -9,7 +9,7 @@ export default function Home() {
   const features = [
     { icon: <Brain size={28} className="text-indigo-400" />,      title: "AI-Powered Clustering",    desc: "Aptitude test ke baad ML model tumhari learning style detect karta hai" },
     { icon: <BookOpen size={28} className="text-emerald-400" />,  title: "Personalized Content",     desc: "Tumhari style ke hisaab se videos, articles aur exercises recommend hote hain" },
-    { icon: <MessageSquare size={28} className="text-violet-400"/>,title: "DeepSeek Chatbot",        desc: "Lecture summary aur doubts ke liye AI chatbot 24/7 available hai" },
+    { icon: <MessageSquare size={28} className="text-violet-400"/>,title: "AI Chatbot",              desc: "Lecture summary aur doubts ke liye AI chatbot 24/7 available hai" },
     { icon: <BarChart2 size={28} className="text-amber-400" />,   title: "Progress Tracking",       desc: "Subject-wise progress dekho aur improvement track karo" },
   ];
 

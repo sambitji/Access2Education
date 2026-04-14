@@ -64,7 +64,7 @@ export default function ChatWindow({ lectureContext = "", onClose }) {
           </div>
           <div>
             <p className="text-white text-sm font-semibold">AI Assistant</p>
-            <p className="text-gray-400 text-xs">DeepSeek powered</p>
+            <p className="text-gray-400 text-xs">AI powered</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
