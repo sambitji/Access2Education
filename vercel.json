@@ -1,22 +1,19 @@
 {
   "version": 2,
-  "buildCommand": "cd Frontend && npm install && npm run build",
-  "outputDirectory": "Frontend/dist",
-  "functions": {
-    "Backend/main.py": {
-      "runtime": "vercel-python@0.1.0"
-    }
-  },
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/:path*",
-      "destination": "Backend/main.py"
+      "src": "Frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
     },
-    { "handle": "filesystem" },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "Backend/main.py",
+      "use": "@vercel/python"
     }
+  ],
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "Backend/main.py" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
