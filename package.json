@@ -1,0 +1,9 @@
+{
+  "name": "access2education-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd Frontend && npm install && npm run build",
+    "install:all": "npm install && cd Frontend && npm install && cd ../Backend && pip install -r requirements.txt"
+  }
+}

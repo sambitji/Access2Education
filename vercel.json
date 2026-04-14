@@ -2,7 +2,6 @@
   "version": 2,
   "buildCommand": "cd Frontend && npm install && npm run build",
   "outputDirectory": "Frontend/dist",
-  "framework": "vite",
   "functions": {
     "Backend/main.py": {
       "runtime": "vercel-python@0.1.0"
@@ -13,6 +12,7 @@
       "source": "/api/:path*",
       "destination": "Backend/main.py"
     },
+    { "handle": "filesystem" },
     {
       "source": "/(.*)",
       "destination": "/index.html"
@@ -25,8 +25,7 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' *;" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     }
   ]

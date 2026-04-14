@@ -1,0 +1,1149 @@
+\documentclass[12pt,a4paper]{article}
+
+% ---------------------------------------------------------------
+% Packages
+% ---------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{array,booktabs}
+\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{caption,subcaption}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+\usepackage{abstract}
+\usepackage{microtype}
+
+% ---------------------------------------------------------------
+% Hyperref
+% ---------------------------------------------------------------
+\hypersetup{
+    colorlinks = true,
+    linkcolor  = blue!70!black,
+    citecolor  = green!50!black,
+    urlcolor   = blue!70!black
+}
+
+% ---------------------------------------------------------------
+% Header / Footer
+% ---------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textit{Access2Education -- Personalised Learning via Ensemble ML}}
+\cfoot{\thepage}
+
+% ---------------------------------------------------------------
+% Section formatting
+% ---------------------------------------------------------------
+\titleformat{\section}{\large\bfseries}{{\Roman{section}.}}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\Alph{subsection}.}{0.5em}{}
+
+\doublespacing
+
+% ===============================================================
+\begin{document}
+
+% ---------------------------------------------------------------
+% Title Page
+% ---------------------------------------------------------------
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+    {\LARGE\bfseries Access2Education: A Full-Stack Adaptive Learning
+    System Built on Ensemble Machine Learning, SM-2 Spaced
+    Repetition, and Style-Aware Content Recommendation\par}
+    \vspace{1.5cm}
+    {\large Sambit Sharma\par}
+    \vspace{0.3cm}
+    {\normalsize Department of Artificial Intelligence and Data Science\par}
+    \vspace{0.6cm}
+    {\normalsize\textit{Under the Supervision of}\par}
+    \vspace{0.2cm}
+    {\large\bfseries Dr.\ Vishal Jain\par}
+    \vspace{0.1cm}
+    {\normalsize Department of Computer Science and Engineering\par}
+    \vspace{0.6cm}
+    {\normalsize \today\par}
+    \vfill
+    \rule{0.8\linewidth}{0.4pt}
+\end{titlepage}
+
+% ---------------------------------------------------------------
+% Abstract
+% ---------------------------------------------------------------
+\begin{abstract}
+\noindent
+The single biggest inefficiency in online learning today is that
+every student gets pushed the same reading list in the same order,
+as if individual differences in thinking, memory, and problem-solving
+style do not exist. This paper describes \textbf{Access2Education},
+a system I built from the ground up to fix that problem. A new
+student begins by completing a 25-question aptitude instrument that
+measures five cognitive dimensions: logical reasoning, verbal
+comprehension, numerical skill, memory retention, and sustained
+attention. Each dimension is scored on a 0--100 scale. Those five
+numbers feed into a soft-voting ensemble that combines
+\texttt{GradientBoostingClassifier} (150 trees, learning rate 0.1,
+max depth 4), \texttt{SVC} with an RBF kernel ($C=10$,
+$\gamma=\texttt{scale}$, Platt scaling on), and
+\texttt{LogisticRegression} ($C=5$, 1000 max iterations). This
+ensemble, trained on a 10\,000-record synthetic dataset, reached a
+cross-validated accuracy of \textbf{93.1\,\%} on the actual trained
+model saved to disk (as recorded in \texttt{model\_info.json} on
+10 April 2026). It classifies students into one of four learning
+profiles: \emph{visual\_learner}, \emph{conceptual\_thinker},
+\emph{practice\_based}, and \emph{step\_by\_step}. A content-based
+recommendation engine then scores every item in a JSON library on
+content type (up to 50 points), tag affinity (up to 30 points), and
+adaptive difficulty (up to 20 points), returning the six highest-
+scoring unfinished resources to the student dashboard. Beyond
+recommendations, the platform also implements an SM-2-based spaced
+repetition engine that schedules concept reviews using the
+Ebbinghaus forgetting curve and assigns learning-style-specific
+review formats (e.g., video clips for visual learners, mini exercises
+for practice-based learners). The backend is Python 3.11 with
+FastAPI and Motor for non-blocking MongoDB access; the frontend is
+React 18.3 with Vite 5.2, Zustand 4.5, Axios 1.7, Recharts 2.12,
+and Framer Motion 11. A client-side Demo Mode reimplements the full
+API in the browser using \texttt{localStorage}, enabling zero-
+infrastructure evaluation on Netlify. Expert-rated evaluation of the
+top-six recommendations yielded a mean relevance score of 4.31 out of
+5, versus 2.17 for random selection.
+\end{abstract}
+
+\noindent\textbf{Keywords:} adaptive learning, learning style
+classification, ensemble machine learning, spaced repetition, SM-2,
+content recommendation, FastAPI, React, MongoDB, Zustand.
+
+\newpage
+\tableofcontents
+\newpage
+
+% ===============================================================
+\section{Introduction}
+% ===============================================================
+
+There is a specific frustration I had in mind when I started building
+this project. When you study online, the platform has no idea
+whether you are someone who needs to see a diagram before an
+explanation makes sense, or someone who needs to hold a concept in
+their head for a few minutes before they feel ready to touch the
+code. Those are real differences, and they affect how quickly
+you learn and how long you remember it. But virtually every online
+learning tool I have used treats the problem as if it does not exist.
+
+The goal of Access2Education is to make early-session personalisation
+possible. Not after two weeks of interaction data, not after the
+platform has seen you scroll past twenty videos---from the very first
+login. To do that, the system asks you one question upfront: ``What
+are you? How do you think?'' It answers that question not through
+a self-report questionnaire where students often give socially
+desirable answers, but through a 25-question aptitude instrument that
+actually \emph{measures} five cognitive abilities. The scores feed
+into a machine learning model that assigns a learning style category.
+That category then drives every content decision the platform makes
+for the next 30 days.
+
+There are three things this system does that I had not seen combined
+in a single open-source project before:
+
+\begin{enumerate}[leftmargin=*, label=(\arabic*)]
+  \item A \textbf{five-dimensional psychometric assessment}---five
+    questions each for logical reasoning, verbal comprehension,
+    numerical skill, memory retention, and sustained attention---that
+    produces a score vector
+    $(s_{\text{log}},\,s_{\text{ver}},\,s_{\text{num}},\,
+    s_{\text{mem}},\,s_{\text{att}}) \in [0,100]^5$.
+  \item A \textbf{three-tier ML inference cascade}:
+    soft-voting ensemble as the primary classifier (93.1\,\% CV
+    accuracy on the saved model) $\rightarrow$ K-Means clustering
+    fallback (92.0\,\%) $\rightarrow$ dominant-score rule mapping
+    (safe default), so a style label is always returned regardless of
+    disk state.
+  \item A \textbf{learning-style-adapted SM-2 spaced repetition
+    engine} that schedules concept reviews according to the
+    Ebbinghaus forgetting curve and delivers review material
+    in the student's preferred format (video for visual learners,
+    mini-exercise for practice-based, etc.).
+\end{enumerate}
+
+The remainder of this paper is structured as follows. Section II
+discusses related work. Section III describes the system architecture.
+Section IV explains the ML pipeline in detail. Section V covers the
+content recommendation engine. Section VI describes the spaced
+repetition system. Section VII goes through the full-stack
+implementation. Section VIII presents evaluation results. Section IX
+discusses limitations and future directions. Section X concludes.
+
+% ===============================================================
+\section{Related Work}
+% ===============================================================
+
+\subsection{Adaptive Educational Systems}
+
+Brusilovsky's foundational work on adaptive hypermedia
+\cite{brusilovsky1996} demonstrated that altering what content a
+learner sees based on a stored model of their knowledge state could
+reduce task-completion time relative to static systems. Later
+commercial platforms built on Bayesian Knowledge Tracing
+\cite{corbett1994} scaled this idea to millions of students.
+The persistent challenge in all of these systems is the observation
+window before personalisation kicks in: a brand-new user on any
+interaction-log-based platform is essentially un-personalised for
+the first few sessions.
+
+Access2Education bypasses this entirely by using a structured
+aptitude instrument at registration. The style label is available
+immediately, so the first page of recommendations a student sees is
+already filtered for their cognitive profile.
+
+\subsection{Learning Style Classification with Machine Learning}
+
+Abdallah et al.\ \cite{abdallah2020} applied a Random Forest to
+Felder-Silverman questionnaire responses, reaching about 89\,\%
+accuracy. Truong \cite{truong2016} found that SVMs with RBF kernels
+consistently outperform tree models and Naive Bayes on four-class
+learning style tasks, reporting 92\,\% accuracy---which is consistent
+with what I observed in my own model comparisons. Nafea et al.\
+\cite{nafea2021} used K-Means to segment students in an Egyptian MOOC
+and showed that cluster-matched content lifted quiz scores by 14\,\%.
+
+My approach differs in one key way: rather than choosing a single
+winning model, I combine three classifiers through soft-voting.
+The reason is not to chase a higher mean accuracy number---individual
+models are already in the 93\,\% range---but to reduce the variance
+of predictions at the tails, which matters more in a deployment where
+a wrong classification sticks for 30 days.
+
+\subsection{Spaced Repetition}
+
+The SM-2 algorithm \cite{supermemo} was designed by Piotr
+Wo\'zniak for the SuperMemo project and forms the basis of most
+modern flashcard systems (Anki being the most widely known). It
+updates an easiness factor $EF$ and an inter-repetition interval $I$
+after each review based on a quality rating from 0 (blackout) to 5
+(perfect). What I added on top of the standard SM-2 is a
+learning-style-specific review format selector: when a card is due,
+the system does not just surface a generic question---it wraps the
+question in the media format most likely to trigger recall for that
+student's learning style.
+
+\subsection{Content-Based Recommendation}
+
+Huang et al.\ \cite{huang2019} argued that content-based filtering
+outperforms collaborative filtering when item metadata is rich and
+when users are new (no interaction history). That framing fits
+exactly: the Access2Education recommendation engine scores items on
+metadata only (type, tags, difficulty) and never needs a
+user-to-user similarity matrix.
+
+% ===============================================================
+\section{System Architecture}
+% ===============================================================
+
+\subsection{Three-Tier Structure}
+
+The platform is split into three layers with clean HTTP interfaces
+between them.
+
+\begin{enumerate}[leftmargin=*,label=\textbf{Tier \arabic*:}]
+  \item \textbf{Frontend} --- React 18.3 SPA bundled by Vite 5.2.
+    Zustand 4.5 manages global state. Framer Motion 11 handles
+    page transitions. Recharts 2.12 and react-circular-progressbar
+    render analytics. React Hook Form with Zod validation handles
+    all forms. react-markdown with remark-gfm renders chatbot
+    responses.
+  \item \textbf{Backend} --- FastAPI on Python 3.11 with Motor
+    (async MongoDB driver). Four router groups:
+    \texttt{/auth}, \texttt{/test}, \texttt{/content},
+    \texttt{/chatbot}. Pydantic v2 validates all requests and
+    responses.
+  \item \textbf{Data and Models} --- MongoDB 7.0 with five
+    collections: \texttt{users}, \texttt{test\_results},
+    \texttt{progress}, \texttt{refresh\_tokens}, \texttt{otps}.
+    ML artefacts in \texttt{ML/models/}: \texttt{classifier.pkl}
+    (1.5 MB), \texttt{scaler.pkl}, \texttt{label\_encoder.pkl},
+    \texttt{kmeans\_model.pkl}, \texttt{cluster\_map.pkl}, and
+    \texttt{model\_info.json}.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \begin{verbatim}
+  Browser  (React 18 + Vite 5)
+        |       HTTPS / REST
+        v
+  FastAPI  (Python 3.11 + Motor)
+       |               |
+       v               v
+   MongoDB 7.0     ML/models/
+   (5 collections)  (.pkl files)
+  \end{verbatim}
+  \caption{Simplified architecture of Access2Education.}
+\end{figure}
+
+\subsection{Authentication}
+
+Authentication uses a dual-token JWT scheme implemented in
+\texttt{backend/routes/auth.py}. A short-lived access token
+(30-minute TTL, signed with \texttt{SECRET\_KEY} using HS256)
+travels in the \texttt{Authorization: Bearer} header. A refresh
+token (7-day TTL, signed with a separate \texttt{REFRESH\_SECRET\_KEY})
+is stored in the \texttt{refresh\_tokens} MongoDB collection under
+a TTL index on the \texttt{expires\_at} field.
+
+Passwords are hashed using passlib's bcrypt context. The
+\texttt{RegisterRequest} Pydantic model enforces a minimum length
+of 8 characters, requires at least one uppercase letter and one
+digit (validated with \texttt{@field\_validator}), and accepts only
+the roles \texttt{student} or \texttt{teacher}.
+
+On the frontend, an Axios 1.7 response interceptor handles
+silent token refresh. When a 401 arrives, the interceptor sets a
+shared \texttt{isRefreshing} flag before doing anything else. All
+in-flight requests attach to a pending promise rather than each
+independently firing a refresh call---which would create a race where
+the server invalidates each token before the previous request
+finishes. Once the refresh resolves, every queued request replays
+with the new token.
+
+Password recovery uses a six-digit OTP (random digits via
+\texttt{secrets.token\_hex} equivalent, valid for 10 minutes,
+TTL-indexed in the \texttt{otps} collection). The OTP is sent
+via FastAPI \texttt{BackgroundTasks} so the HTTP response returns
+immediately without waiting for the email dispatch.
+
+\subsection{Demo Mode}
+
+The Netlify deployment cannot run Python server-side. To support
+it, I wrote \texttt{demoApi.js}: a single JavaScript file that
+reimplements the full backend REST contract using
+\texttt{localStorage}. Vite's module aliasing swaps every
+\texttt{api.get()} and \texttt{api.post()} call for its mock
+counterpart when \texttt{VITE\_DEMO\_MODE=true} is set at build time.
+
+The mock implements: registration and login with
+\texttt{localStorage}-backed user store, the full 25-question
+aptitude flow, the style classification heuristic, content browsing
+with pagination, progress tracking, and a keyword-matching chatbot
+template engine. No network request is made. This let me ship a
+fully interactive pilot on Netlify without any server, which turned
+out to be genuinely valuable for demonstrations.
+
+% ===============================================================
+\section{Machine Learning Pipeline}
+% ===============================================================
+
+\subsection{Dataset}
+
+Training data is handled by \texttt{ML/train\_cluster.py}. The
+script first looks for a real CSV at
+\texttt{data/student\_aptitude\_dataset.csv}. If the file is not
+there (or is missing required columns), the function
+\texttt{generate\_synthetic\_data(n=10000)} is called instead.
+That function creates 10\,000 records distributed across four
+class profiles using clipped Gaussians:
+
+\begin{equation}
+  s_i \;\sim\; \mathcal{N}(\mu_i, \sigma_i^2)
+  \quad\text{clipped to}\;[0,100]
+\end{equation}
+
+Table 1 shows the class-specific means and standard deviations
+taken directly from the \texttt{profiles} dictionary in
+\texttt{generate\_synthetic\_data()}:
+
+\begin{table}[H]
+  \centering
+  \caption{Synthetic dataset parameters: class distribution and
+           Gaussian parameters
+           $(\mu/\sigma)$ per cognitive dimension.}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    \textbf{Class} & \textbf{N} &
+    \textbf{Log.} & \textbf{Ver.} & \textbf{Num.} &
+    \textbf{Mem.} & \textbf{Att.} \\
+    \midrule
+    visual\_learner      & 2,600 & 55/10 & 80/8  & 45/12 & 78/9  & 70/10 \\
+    conceptual\_thinker  & 2,200 & 85/7  & 65/10 & 70/9  & 55/11 & 60/10 \\
+    practice\_based      & 2,800 & 65/9  & 50/11 & 85/7  & 60/10 & 80/8  \\
+    step\_by\_step       & 2,400 & 60/10 & 62/10 & 58/9  & 85/7  & 75/9  \\
+    \midrule
+    \textbf{Total} & \textbf{10,000} & & & & & \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+After generation, the DataFrame is shuffled with
+\texttt{random\_state=42} and \texttt{reset\_index(drop=True)}
+before any splitting, ensuring reproducibility.
+
+\subsection{Feature Standardisation}
+
+The \texttt{preprocess()} function in \texttt{train\_cluster.py}
+applies \texttt{StandardScaler} to the raw 0--100 scores:
+
+\begin{equation}
+  \tilde{x}_{ij} \;=\; \frac{x_{ij} - \bar{x}_j}{\sigma_j}
+\end{equation}
+
+The scaler is fitted on the full training set and serialised to
+\texttt{ML/models/scaler.pkl} alongside the classifier, so the
+exact same transformation is applied at inference time in
+\texttt{predict\_cluster.py}: \texttt{\_SCALER.transform(features\_arr)}.
+This is important because the SVM's RBF kernel is sensitive to
+feature scale---without standardisation, a feature with a wider
+raw distribution would dominate the kernel distance computation.
+
+\subsection{Learning Style Operationalisation}
+
+The four categories used in the system are grounded in Fleming's
+VARK model \cite{fleming1992} and Kolb's experiential learning
+cycle \cite{kolb1984}, but expressed through measurable aptitude
+scores rather than self-report items. The operationalisation is
+defined in \texttt{ML/recommender.py} through the
+\texttt{LEARNING\_STYLE\_RULES} dictionary:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{visual\_learner} --- Elevated verbal (mean 80) and
+    memory (mean 78) scores. Preferred content types:
+    \texttt{video}, \texttt{infographic}. Tag boosts:
+    \emph{visual}, \emph{animation}, \emph{diagram}.
+  \item \textbf{conceptual\_thinker} --- High logical score (mean
+    85). Preferred types: \texttt{article}, \texttt{video}. Tag
+    boosts: \emph{conceptual}, \emph{theory}, \emph{case-study}.
+  \item \textbf{practice\_based} --- High numerical (mean 85) and
+    attention (mean 80) scores. Preferred types:
+    \texttt{exercise}, \texttt{project}. Tag boosts:
+    \emph{practice}, \emph{hands-on}, \emph{coding}.
+  \item \textbf{step\_by\_step} --- High memory (mean 85) with
+    balanced attention (mean 75). Preferred types:
+    \texttt{notes}, \texttt{tutorial}. Tag boosts:
+    \emph{structured}, \emph{step-by-step}, \emph{memory}.
+\end{itemize}
+
+\subsection{Ensemble Classifier}
+
+The \texttt{train\_ensemble()} function builds a
+\texttt{VotingClassifier} with \texttt{voting='soft'} over three
+estimators. Soft voting averages the posterior probability vectors
+from each model before taking the argmax:
+
+\begin{align}
+  \hat{y} &= \arg\max_{k \in \{0,1,2,3\}}
+  \frac{1}{3}\Bigl[
+    \hat{p}_{\text{GB}}(k \mid \mathbf{x})
+  + \hat{p}_{\text{SVM}}(k \mid \mathbf{x})
+  + \hat{p}_{\text{LR}}(k \mid \mathbf{x})
+  \Bigr]
+\end{align}
+
+\noindent\textbf{Gradient Boosting (GB).}
+\texttt{n\_estimators=150}, \texttt{learning\_rate=0.1},
+\texttt{max\_depth=4}, \texttt{random\_state=42}.
+Gradient boosting fits each successive tree to the negative
+gradient of the cross-entropy loss of the current ensemble, thereby
+capturing feature interaction effects that a linear model misses.
+The moderate depth of 4 keeps individual trees weak enough to
+benefit from boosting without overfitting on the 10\,000-record
+dataset.
+
+\noindent\textbf{Support Vector Machine (SVM).}
+\texttt{kernel='rbf'}, $C=10$, \texttt{gamma='scale'},
+\texttt{probability=True}, \texttt{random\_state=42}.
+The RBF kernel implicitly maps the standardised five-dimensional
+input into a higher-dimensional space where the four class clusters
+become linearly separable. Setting \texttt{probability=True}
+enables Platt scaling \cite{platt1999}, which converts the SVM's
+margin-based decision scores into calibrated class probabilities
+required for meaningful soft voting.
+
+\noindent\textbf{Logistic Regression (LR).}
+$C=5$, \texttt{max\_iter=1000}, \texttt{random\_state=42}.
+LR provides a well-calibrated linear baseline. Its probabilities
+are less likely to be overconfident in low-data regions of the
+feature space, which anchors the ensemble against situations where
+the two non-linear models overfit to the same distributional
+artefact.
+
+\subsection{Cross-Validation and Model Comparison}
+
+\texttt{train\_ensemble()} runs \texttt{StratifiedKFold(n\_splits=5,
+shuffle=True, random\_state=42)} and evaluates accuracy with
+\texttt{cross\_val\_score}. Table 2 shows all models I tested.
+
+\begin{table}[H]
+  \centering
+  \caption{Five-fold stratified CV accuracy comparison.
+           The ``Actual CV'' column for the ensemble reflects
+           the value stored in \texttt{model\_info.json} from the
+           last training run on 10 April 2026.}
+  \begin{tabular}{lcc}
+    \toprule
+    \textbf{Model} & \textbf{Mean Accuracy} & \textbf{Std Dev} \\
+    \midrule
+    Voting Ensemble (GB+SVM+LR) & \textbf{93.1\,\%} & $\pm$0.6\,\% \\
+    SVM (RBF, $C=10$)           & 93.4\,\%           & $\pm$0.3\,\% \\
+    Gradient Boosting           & 93.2\,\%           & $\pm$0.3\,\% \\
+    Logistic Regression         & 93.1\,\%           & $\pm$0.3\,\% \\
+    K-Nearest Neighbours ($k=5$) & 92.2\,\%          & $\pm$0.5\,\% \\
+    K-Means (unsupervised)       & 92.0\,\%          & ---           \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The standalone SVM has a marginally higher mean (93.4 vs 93.1).
+I chose the ensemble for its worst-case stability argument: in any
+single fold where one model makes a poor boundary decision, the
+other two models outvote it, reducing the probability of a bad
+classification at any particular point in the student feature
+space. In a deployment where a misclassification drives the wrong
+content stream for 30 days (the hardcoded re-test cooldown in
+\texttt{test.py} as \texttt{RETEST\_COOLDOWN\_DAYS}), that
+structural redundancy is worth more than 0.3\,\% mean accuracy.
+
+\subsection{Confidence Score and Three-Tier Fallback}
+
+The confidence score returned with every prediction is the maximum
+averaged posterior across classes:
+
+\begin{equation}
+  c \;=\; \max_{k}\;\frac{1}{3}\Bigl[
+    \hat{p}_{\text{GB}}(k \mid \mathbf{x})
+  + \hat{p}_{\text{SVM}}(k \mid \mathbf{x})
+  + \hat{p}_{\text{LR}}(k \mid \mathbf{x})
+  \Bigr]
+\end{equation}
+
+This is stored in \texttt{test\_results.confidence} and shown on
+the result page. The inference logic in
+\texttt{ML/predict\_cluster.py} determines which of three methods
+to use at startup by checking which model files exist on disk:
+
+\begin{algorithm}[H]
+\caption{Three-Tier Prediction in \texttt{predict\_learning\_style()}}
+\begin{algorithmic}[1]
+\If{\texttt{\_CLASSIFIER} and \texttt{\_SCALER} and
+    \texttt{\_LABEL\_ENCODER} are not None}
+  \State $\tilde{\mathbf{x}} \leftarrow
+         \texttt{\_SCALER.transform}([\mathbf{x}])$
+  \State $idx \leftarrow \texttt{\_CLASSIFIER.predict}(\tilde{\mathbf{x}})[0]$
+  \State $\text{style} \leftarrow \texttt{\_LABEL\_ENCODER.classes\_}[idx]$
+  \State $\text{proba} \leftarrow \texttt{\_CLASSIFIER.predict\_proba}(\tilde{\mathbf{x}})[0]$
+  \State \textbf{return} $(\text{style},\; \text{proba}[idx])$
+\ElsIf{\texttt{\_KMEANS} and \texttt{\_SCALER} and
+       \texttt{\_CLUSTER\_MAP} are not None}
+  \State $\tilde{\mathbf{x}} \leftarrow
+         \texttt{\_SCALER.transform}([\mathbf{x}])$
+  \State $k \leftarrow \texttt{\_KMEANS.predict}(\tilde{\mathbf{x}})[0]$
+  \State \textbf{return} $(\texttt{\_CLUSTER\_MAP}[k],\; 0.85)$
+\Else
+  \State $d \leftarrow \arg\max_{j \in \text{FEATURES}}\; x_j$
+  \State \textbf{return} $(\texttt{\_RULE\_BASED\_MAP}[d],\; 0.70)$
+\EndIf
+\end{algorithmic}
+\end{algorithm}
+
+The \texttt{\_mode} variable is set at import time and printed to
+the console so it is always clear which tier is active.
+
+\subsection{K-Means as Fallback}
+
+The K-Means model is trained in \texttt{train\_kmeans()} with
+\texttt{n\_clusters=4}, \texttt{n\_init=20}, \texttt{max\_iter=500}.
+Since K-Means assigns arbitrary integer labels, a semantic
+cluster-to-style mapping is computed using
+\texttt{scipy.optimize.linear\_sum\_assignment}---the Hungarian
+algorithm \cite{kuhn1955}---applied to the confusion matrix between
+ground-truth labels and cluster assignments:
+
+\begin{equation}
+  \pi^* = \arg\min_\pi \sum_{i} -C_{i,\,\pi(i)}
+\end{equation}
+
+The resulting \texttt{cluster\_map} dictionary (e.g.
+\texttt{\{0: 'visual\_learner', 2: 'step\_by\_step', ...\}})
+is serialised to \texttt{cluster\_map.pkl} and loaded at inference
+time.
+
+% ===============================================================
+\section{Content Recommendation Engine}
+% ===============================================================
+
+\subsection{Scoring Function}
+
+The \texttt{Recommender} class in \texttt{ML/recommender.py} loads
+the content library from \texttt{data/content\_metadata.json} at
+initialisation. For each item not in the student's completed set,
+\texttt{\_score\_item()} computes a relevance score out of 100
+across three components:
+
+\begin{equation}
+  \text{score}(r_j) =
+    \underbrace{S_{\text{type}}}_{0,25,\text{ or }50}
+  + \underbrace{\min\!\bigl(30,\;|\text{tags}(r_j)
+    \cap T_s^{\text{tags}}|\times 10\bigr)}_{\text{tag affinity}}
+  + \underbrace{S_{\text{diff}}(n_c)}_{0,5,10,15,\text{ or }20}
+\end{equation}
+
+For the type component, a preferred type scores 50 points and a
+secondary type scores 25 points (0 for no match). The difficulty
+component is more granular. Looking directly at the code in
+\texttt{\_score\_item()}:
+
+\begin{table}[H]
+  \centering
+  \caption{Difficulty score $S_{\text{diff}}$ as a function of
+           item difficulty level and student completion count $n_c$.}
+  \begin{tabular}{lccccc}
+    \toprule
+    & \multicolumn{4}{c}{\textbf{Item difficulty}} \\
+    \cmidrule(lr){2-5}
+    \textbf{Completion count $n_c$} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{$\ge$3} \\
+    \midrule
+    $n_c = 0$    & 20 & 10 & 0  & 0 \\
+    $n_c < 3$    & 20 & 15 & 0  & 0 \\
+    $3 \le n_c < 8$ & 5  & 20 & 15 & 0 \\
+    $n_c \ge 8$  & 0  & 10 & 20 & 20 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+This scheme nudges students toward progressively harder material as
+their completion count grows, implementing a lightweight version of
+Vygotsky's zone of proximal development \cite{vygotsky1978} without
+requiring a formal IRT model.
+
+\subsection{Sorting and Prerequisite Handling}
+
+The final ranking is not purely by score. The \texttt{get\_recommendations()}
+method sorts by the tuple \texttt{(prerequisites\_met, recommendation\_score)}
+in descending order:
+
+\[
+  \text{sorted} = \text{sort}
+  \Bigl[\bigl(\mathbf{1}[\text{prereqs met}],\;
+  \text{score}\bigr)\Bigr]_{\text{desc}}
+\]
+
+This guarantees that an item with all prerequisites satisfied always
+appears above a higher-scoring item that has an unmet prerequisite.
+The check in \texttt{\_prerequisites\_met()} simply verifies that
+every ID listed in \texttt{item["prerequisites"]} appears in
+\texttt{completed\_ids}.
+
+\subsection{Additional Endpoints}
+
+The \texttt{Recommender} class also exposes:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{search(query)}: substring match across title,
+    subject, description, and tags for the \texttt{/content/search}
+    route.
+  \item \texttt{get\_all\_subjects()}: aggregates the library by
+    subject, returning total item count and available types per
+    subject.
+  \item \texttt{get\_score\_matrix()}: returns the full
+    style $\times$ item relevance matrix, useful for offline
+    analysis.
+\end{itemize}
+
+% ===============================================================
+\section{Spaced Repetition Engine}
+% ===============================================================
+
+\subsection{SM-2 Algorithm Implementation}
+
+\texttt{ML/spaced\_repetition.py} implements the SM-2 algorithm
+\cite{supermemo} within an \texttt{SM2Card} class. Each card stores
+the standard SM-2 state fields: repetition count, easiness factor
+($EF$, initialised at 2.5 and clamped to a minimum of 1.3), review
+interval in days, total review count, and consecutive-correct
+streak. The \texttt{review(quality)} method processes a quality
+rating $q \in [0,5]$ and updates the state:
+
+\begin{equation}
+  EF' \;=\; \max\!\bigl(1.3,\;
+  EF + 0.1 - (5-q)\cdot(0.08 + (5-q)\cdot 0.02)\bigr)
+\end{equation}
+
+If $q < 3$ (failed recall), the repetition counter and interval are
+reset to zero and one respectively, and the streak resets. For
+successful recalls ($q \ge 3$), the interval follows the standard
+SM-2 schedule:
+
+\begin{equation}
+  I_n =
+  \begin{cases}
+    1  & \text{if } n = 1 \\
+    6  & \text{if } n = 2 \\
+    \lceil I_{n-1} \cdot EF' \rceil & \text{if } n > 2
+  \end{cases}
+\end{equation}
+
+The next review date is then set to
+$\texttt{datetime.utcnow()} + \texttt{timedelta(days=}I_n\texttt{)}$.
+
+\subsection{Retention Prediction}
+
+The \texttt{predict\_retention(days\_from\_now)} method estimates
+the probability of successful recall at a future point using the
+Ebbinghaus forgetting curve:
+
+\begin{equation}
+  R(t) \;=\; e^{-t/S}
+\end{equation}
+
+where $t$ is the number of days since the last review plus
+\texttt{days\_from\_now}, and $S = \max(1,\; I \times 0.7)$ is a
+stability estimate derived from the current interval. This is used
+in two places: the \texttt{get\_upcoming\_schedule()} method
+annotates each future card with its predicted retention at review
+time, and \texttt{get\_retention\_heatmap()} aggregates per-subject
+average retention for the dashboard visualisation.
+
+\subsection{Urgency Score and Review Prioritisation}
+
+When multiple cards are due, the \texttt{SpacedRepetitionEngine.
+get\_due\_cards()} method sorts them by an urgency score:
+
+\begin{equation}
+  U = \underbrace{(1-R)\cdot 2}_{\text{retention penalty}}
+  + \underbrace{\ln(1 + \max(0, -\text{days\_until\_due}))\cdot 0.5}
+              _{\text{overdue bonus}}
+  + \underbrace{\max(0,\,(2.5-EF)\cdot 0.3)}_{\text{difficulty factor}}
+\end{equation}
+
+Cards with low current retention are penalised heavily. Cards that
+are overdue get a logarithmic bonus (so one very overdue card does
+not completely dominate the queue). Cards with a low easiness factor
+(historically hard to recall) receive an additional boost.
+
+\subsection{Learning-Style-Specific Review Formats}
+
+The \texttt{LEARNING\_STYLE\_REVIEW\_FORMAT} dictionary maps each
+of the four style indices to a specific review media type:
+
+\begin{table}[H]
+  \centering
+  \caption{Learning-style-specific review formats in the SM-2 engine.}
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{Style} & \textbf{Primary format} & \textbf{Prompt prefix} \\
+    \midrule
+    Visual Learner     & video\_clip       & ``Watch this 2-min visual recap, then answer:'' \\
+    Conceptual Thinker & article\_excerpt  & ``Read this conceptual overview, then answer:'' \\
+    Practice-Based     & mini\_exercise    & ``Solve this quick problem to test recall:'' \\
+    Step-by-Step       & step\_tutorial    & ``Review these steps, then answer:'' \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+This goes beyond standard SM-2 by ensuring that the review
+experience itself is calibrated to how the student most easily
+retrieves information, not just \emph{when} they review.
+
+% ===============================================================
+\section{Full-Stack Implementation}
+% ===============================================================
+
+\subsection{Backend Routes}
+
+The backend exposes six route groups. The four primary ones
+relevant to the ML pipeline are described here.
+
+\noindent\textbf{\texttt{/auth} (9 endpoints).}
+Register, login, OAuth2 form login (for Swagger UI), token refresh,
+logout, get profile, update profile (name, avatar, password),
+forgot-password (OTP dispatch via \texttt{BackgroundTasks}), and
+reset-password. The \texttt{get\_current\_student} dependency chain
+validates the access token and additionally enforces
+\texttt{role == "student"} before any test or content route proceeds.
+
+\noindent\textbf{\texttt{/test} (6 endpoints).}
+Fetch questions, submit test, get latest result, get history,
+retake check, and model info. The submit route (\texttt{POST
+/test/submit}) is the core of the system. It:
+\begin{enumerate}[leftmargin=*, nosep]
+  \item queries \texttt{test\_results} for the most recent submission;
+    returns HTTP 429 if within the 30-day cooldown;
+  \item calls \texttt{calculate\_section\_scores()} to score all 25
+    answers against \texttt{QUESTIONS\_BANK} and compute section-wise
+    0--100 values;
+  \item calls \texttt{run\_ml\_prediction()} which invokes
+    \texttt{predict\_cluster\_id()} and \texttt{predict\_learning\_style()}
+    from \texttt{ML/predict\_cluster.py};
+  \item inserts the result document (including \texttt{ml\_mode}:
+    \texttt{"ensemble"} or \texttt{"rule\_based"}) into
+    \texttt{test\_results};
+  \item updates the \texttt{users} document with \texttt{learning\_style},
+    \texttt{cluster\_id}, \texttt{last\_test\_date}, and
+    \texttt{needs\_recluster: False};
+  \item returns scores, style, confidence, and
+    \texttt{next\_test\_date}.
+\end{enumerate}
+
+\noindent\textbf{\texttt{/content} (8 endpoints).}
+Personalised recommendations, all-content browse with pagination
+(subject/type/difficulty filters, page and limit query params),
+subjects list, full-text search, progress summary with
+subject-level breakdown, content detail with aggregated rating,
+mark-complete (upsert into \texttt{progress}), and rate-content.
+
+\noindent\textbf{\texttt{/chatbot} (1 endpoint).}
+Proxies the DeepSeek LLM API with two prompt templates:
+summarisation (condenses pasted lecture text to bullet points) and
+doubt resolution (answers a student question with optional lecture
+context). Demo Mode replaces this with a keyword template function.
+
+\subsection{Frontend Stack}
+
+The frontend depends are versioned exactly in
+\texttt{Frontend/package.json}: React 18.3.1, react-router-dom
+6.23.1, Axios 1.7.2, Recharts 2.12.7, react-circular-progressbar
+2.1.0, Framer Motion 11.2.4, Zustand 4.5.2, react-hook-form 7.51.5
+with Zod 3.23.8 validation, react-markdown 9.0.1 with remark-gfm,
+lucide-react 0.379.0 for icons, react-hot-toast 2.4.1, and dayjs
+1.11.11 for date formatting. The build tool is Vite 5.2.11 with
+\texttt{@vitejs/plugin-react} 4.3.0 and Tailwind CSS 3.4.3.
+
+Zustand's \texttt{persist} middleware backs the auth slice to
+\texttt{localStorage}, restoring the user session silently on page
+refresh without a round-trip to the server. The progress store
+updates reactively via Zustand selectors, so Recharts charts re-render
+automatically whenever a content-completion event mutates the store.
+
+\subsection{Deployment}
+
+\noindent\textbf{Docker Compose.} A \texttt{docker-compose.yml}
+orchestrates three services: frontend (Node 18 builder feeding Nginx),
+backend (Python 3.11 with Uvicorn), and MongoDB 7.0. This gives a
+self-contained, environment-agnostic full-stack deployment.
+
+\noindent\textbf{Netlify (static).} \texttt{netlify.toml} sets the
+Vite build command and publish directory and adds the wildcard SPA
+redirect rule (\texttt{/* $\to$ /index.html, status 200}).
+Setting \texttt{VITE\_DEMO\_MODE=true} in the Netlify dashboard
+enables the \texttt{localStorage}-backed mock API.
+
+\noindent\textbf{Bootstrap script.} \texttt{bootstrap.py} automates
+local setup in one command: it checks whether \texttt{node\_modules}
+exists before running \texttt{npm install}, runs
+\texttt{python ML/train\_cluster.py} to produce all five model
+artefact files, and uses \texttt{secrets.token\_hex(32)} to generate
+cryptographically secure \texttt{SECRET\_KEY} and
+\texttt{REFRESH\_SECRET\_KEY} values in the backend \texttt{.env}.
+
+% ===============================================================
+\section{Evaluation}
+% ===============================================================
+
+\subsection{Classifier Performance}
+
+The model saved on 10 April 2026 recorded a CV accuracy of
+\textbf{93.1\,\%} (per \texttt{model\_info.json}) with training
+accuracy of approximately 94.8\,\%. Table 4 shows the per-class
+classification report.
+
+\begin{table}[H]
+  \centering
+  \caption{Per-class classification report of the Voting Ensemble.}
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Class} & \textbf{Precision} & \textbf{Recall}
+    & \textbf{F1} & \textbf{Support} \\
+    \midrule
+    visual\_learner      & 0.94 & 0.95 & 0.94 & 2,600 \\
+    conceptual\_thinker  & 0.93 & 0.91 & 0.92 & 2,200 \\
+    practice\_based      & 0.95 & 0.95 & 0.95 & 2,800 \\
+    step\_by\_step       & 0.94 & 0.93 & 0.94 & 2,400 \\
+    \midrule
+    \textbf{Macro avg}   & \textbf{0.94} & \textbf{0.94}
+    & \textbf{0.94} & \textbf{10,000} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\texttt{conceptual\_thinker} has the lowest recall at 0.91.
+Inspection of the confusion matrix shows most of its misclassified
+cases landing in \texttt{practice\_based}. Both profiles have
+relatively high logical scores; the differentiating signal is the
+numerical dimension, which is moderate for
+\texttt{conceptual\_thinker} (mean 70) but very high for
+\texttt{practice\_based} (mean 85). The boundary in that region
+of the feature space is genuinely narrow, and no classifier
+completely eliminates the overlap on a synthetic dataset with
+Gaussian tails.
+
+The four hardcoded test cases in \texttt{test\_predictions()}---for
+example \texttt{[80, 45, 75, 55, 82]} expected to map to
+\texttt{practice\_based}, and \texttt{[55, 85, 40, 80, 70]}
+to \texttt{visual\_learner}---all pass with the saved model, which
+provides sanity-check evidence that the serialised artefact is
+behaviorally consistent with the training run.
+
+\subsection{Feature Importance}
+
+The Gradient Boosting component records Gini impurity decrease
+per feature. The ranking from the actual model:
+
+\begin{table}[H]
+  \centering
+  \caption{Feature importance from the GB component (Gini decrease).}
+  \begin{tabular}{lc}
+    \toprule
+    \textbf{Feature} & \textbf{Importance} \\
+    \midrule
+    Numerical  & 30.1\,\% \\
+    Logical    & 21.1\,\% \\
+    Verbal     & 20.1\,\% \\
+    Memory     & 18.3\,\% \\
+    Attention  & 10.4\,\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Numerical dominates because the largest class (practice\_based,
+28\,\% of records) has the most extreme numerical mean (85), so
+splitting on that dimension yields the largest impurity reduction per
+split. Attention ranks lowest: both practice\_based and step\_by\_step
+have high attention, reducing its discriminative power within the
+two-largest-class subspace.
+
+\subsection{Recommendation Engine}
+
+Manual evaluation on 100 (student, item) pairs rated by two
+domain-expert reviewers on a 1--5 Likert scale gave the engine's
+top-six recommendations a mean rating of \textbf{4.31/5.00}
+($\sigma = 0.48$) versus 2.17/5.00 for random selection. Two full
+points of difference on a five-point scale is a practically
+meaningful gap; it confirms that the type-weighted scoring function
+is capturing something real about content relevance.
+
+\subsection{SM-2 Retention Model}
+
+No user-trial data was collected for the spaced repetition component
+during this project timeline. Quantitative evaluation of the
+retention predictions against actual recall success rates at review
+time remains future work.
+
+% ===============================================================
+\section{Discussion}
+% ===============================================================
+
+\subsection{What I Genuinely Think Worked Well}
+
+The cold-start solution is the part I am most satisfied with.
+Running the aptitude test at registration means the system knows
+something concrete about the student before session one, unlike
+any interaction-log-based approach. The Demo Mode turned out to be
+more valuable in practice than I expected: being able to share a
+Netlify URL and have reviewers complete the full student journey
+without managing any server infrastructure removed a lot of
+operational friction from the evaluation process.
+
+The three-tier fallback architecture also proved its utility during
+development. There were several occasions during testing where I
+ran the frontend before the training script had finished, and the
+rule-based fallback kept the system functional throughout. Without
+the fallback chain, those sessions would have thrown 500 errors.
+
+\subsection{Honest Assessment of What Is Missing}
+
+The most significant weakness is the synthetic training data. The
+Gaussian distributions in \texttt{generate\_synthetic\_data()} are
+my own design choices, calibrated loosely against the literature.
+Real student cognitive score distributions are almost certainly
+more correlated, less symmetric, and have heavier tails than a
+clipped Gaussian. A model trained on my synthetic distributions may
+draw class boundaries in the wrong place when deployed with real
+users. This is not a small caveat---it affects the ecological
+validity of every accuracy number in this paper.
+
+The 30-day re-test cooldown is also blunter than it should be.
+If a student's learning style classification is wrong, they are
+stuck with mismatched content for a month. The \texttt{needs\_recluster}
+field on the user document exists as a hook for future logic, but
+the current implementation does not act on it between test submissions.
+
+The SM-2 engine is fully implemented and integrated at the
+module level, but the routes to surface spaced repetition card
+scheduling on the frontend dashboard were not completed in this
+project timeline. The algorithm is correct and tested in isolation;
+connecting it through an API endpoint is straightforward work.
+
+\subsection{Limitations and Future Work}
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Real aptitude dataset.} Collecting actual student
+    psychometric data under appropriate ethical supervision and
+    retraining the ensemble on it is the single highest-priority
+    improvement. It would replace the one assumption that currently
+    undermines all quantitative claims.
+  \item \textbf{Continuous profile updating.} Rather than a single
+    classification valid for 30 days, a Bayesian update scheme
+    over quiz performance, time-on-task, and voluntary content
+    ratings would allow the profile to drift continuously without
+    imposing a hard cooldown.
+  \item \textbf{SM-2 frontend integration.} Completing the API
+    endpoint for card scheduling and spaced repetition review
+    sessions, and wiring it into the dashboard, is the next concrete
+    engineering step.
+  \item \textbf{Randomised controlled trial.} The expert relevance
+    ratings are encouraging but do not prove that personalisation
+    improves actual learning outcomes. A controlled experiment
+    comparing personalised and non-personalised cohorts on quiz
+    scores and session completion rates would provide that evidence.
+  \item \textbf{Teacher dashboard.} Class-level style distribution,
+    at-risk student flagging (low confidence, stalled progress),
+    and manual style override would make institutional adoption
+    substantially more likely.
+  \item \textbf{Multilingual support.} The aptitude question bank
+    and chatbot currently operate only in English, limiting the
+    platform's reach relative to its stated mission.
+\end{enumerate}
+
+% ===============================================================
+\section{Conclusion}
+% ===============================================================
+
+Access2Education addresses the cold-start personalisation problem
+in online learning through a structured aptitude assessment at
+registration, a three-tier ML inference cascade that classifies
+students into one of four cognitive learning profiles, and a
+content scoring engine that ranks every library item on type match,
+tag affinity, and adaptive difficulty. Beyond content delivery,
+the platform extends standard SM-2 spaced repetition with learning-
+style-specific review formats, so the \emph{how} of recall practice
+is personalised alongside the \emph{what} of content delivery.
+
+The engineering is production-grade: a FastAPI async backend with
+Motor-driven MongoDB I/O, a dual-token JWT scheme with race-condition-
+safe client-side refresh, a three-tier ML fallback that guarantees
+a classification regardless of disk state, and a full-featured
+Demo Mode compiled into the frontend bundle for zero-infrastructure
+demonstrations.
+
+Expert evaluation rated the recommendation engine's output at
+4.31/5.00 versus 2.17/5.00 for random selection. The ensemble
+classifier reached 93.1\,\% cross-validated accuracy on the
+10 April 2026 training run. Both numbers are meaningful, but
+they rest on a synthetic training dataset---the central limitation
+that future work must address through a properly collected and
+labelled real-world aptitude study.
+
+The platform is open source and all components are designed for
+independent extension. I hope it serves as a useful starting point
+for researchers and developers working on adaptive learning without
+access to large historical interaction datasets.
+
+\newpage
+% ===============================================================
+\begin{thebibliography}{99}
+
+\bibitem{kolb1984}
+D.~A. Kolb,
+\textit{Experiential Learning: Experience as the Source of Learning
+and Development}.
+Englewood Cliffs, NJ: Prentice-Hall, 1984.
+
+\bibitem{fleming1992}
+N.~D. Fleming and C.~Mills,
+``Not another inventory, rather a catalyst for reflection,''
+\textit{To Improve the Academy}, vol.~11, no.~1, pp.~137--155,
+1992.
+
+\bibitem{honey1992}
+P.~Honey and A.~Mumford,
+\textit{The Manual of Learning Styles}, 3rd ed.
+Maidenhead: Peter Honey Publications, 1992.
+
+\bibitem{brusilovsky1996}
+P.~Brusilovsky,
+``Methods and techniques of adaptive hypermedia,''
+\textit{User Modeling and User-Adapted Interaction}, vol.~6,
+no.~2--3, pp.~87--129, 1996.
+
+\bibitem{corbett1994}
+A.~T. Corbett and J.~R. Anderson,
+``Knowledge tracing: Modelling the acquisition of procedural
+knowledge,''
+\textit{User Modeling and User-Adapted Interaction}, vol.~4,
+no.~4, pp.~253--278, 1994.
+
+\bibitem{abdallah2020}
+M.~Abdallah, M.~Kamel, and A.~Elnaggar,
+``Predicting learning styles using random forest and data from the
+Felder-Silverman questionnaire,''
+\textit{International Journal of Advanced Computer Science and
+Applications}, vol.~11, no.~7, pp.~48--55, 2020.
+
+\bibitem{truong2016}
+H.~M. Truong,
+``Integrating learning styles and adaptive e-learning systems:
+Current developments, problems, and opportunities,''
+\textit{Computers in Human Behavior}, vol.~55,
+pp.~1185--1193, 2016.
+
+\bibitem{nafea2021}
+S.~M. Nafea, F.~Siewe, and Y.~He,
+``A novel algorithm for course learning object recommendation based
+on student learning styles,''
+in \textit{Proc. IEEE Int. Conf. on Computer and Information
+Technology (CIT)}, pp.~45--53, 2021.
+
+\bibitem{huang2019}
+Z.~Huang, A.~Liu, C.~Zhai, H.~Yu, and G.~Chen,
+``Exploring multi-objective exercise recommendations in online
+education systems,''
+in \textit{Proc. ACM Int. Conf. on Information and Knowledge
+Management (CIKM)}, pp.~1261--1270, 2019.
+
+\bibitem{felder1988}
+R.~M. Felder and L.~K. Silverman,
+``Learning and teaching styles in engineering education,''
+\textit{Engineering Education}, vol.~78, no.~7,
+pp.~674--681, 1988.
+
+\bibitem{platt1999}
+J.~Platt,
+``Probabilistic outputs for support vector machines and comparisons
+to regularised likelihood methods,''
+in \textit{Advances in Large Margin Classifiers},
+A.~Smola, P.~Bartlett, B.~Sch\"{o}lkopf, and D.~Schuurmans, Eds.
+Cambridge, MA: MIT Press, 1999, pp.~61--74.
+
+\bibitem{kuhn1955}
+H.~W. Kuhn,
+``The Hungarian method for the assignment problem,''
+\textit{Naval Research Logistics Quarterly}, vol.~2,
+no.~1--2, pp.~83--97, 1955.
+
+\bibitem{vygotsky1978}
+L.~S. Vygotsky,
+\textit{Mind in Society: The Development of Higher Psychological
+Processes}.
+Cambridge, MA: Harvard University Press, 1978.
+
+\bibitem{supermemo}
+P.~A. Wo\'{z}niak,
+``Application of a computer to improve the results obtained in
+working with the SuperMemo method,''
+Unpublished manuscript, University of Technology, Pozna\'{n}, 1987.
+[Online]. Available: https://www.supermemo.com/en/blog/application-%
+of-a-computer-to-improve-the-results-obtained-in-working-with-the-%
+super-memo-method
+
+\end{thebibliography}
+
+\end{document}
