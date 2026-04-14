@@ -17,7 +17,6 @@ AI-powered education platform designed to improve learning outcomes and accessib
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://mongodb.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Deployed on Vercel](https://img.shields.io/badge/vercel-%23000000.svg?style=for-the-badge&logo=vercel&logoColor=white)](https://access-2-education.vercel.app)
 
 <br/>
 
@@ -34,7 +33,6 @@ AI-powered education platform designed to improve learning outcomes and accessib
 [🤖 ML Pipeline](#-ml-pipeline) &nbsp;·&nbsp;
 [🚀 Quick Start](#-quick-start) &nbsp;·&nbsp;
 [⚙️ Setup](#️-setup) &nbsp;·&nbsp;
-[🌐 Deployment](#-deployment) &nbsp;·&nbsp;
 [📡 API Docs](#-api-documentation)
 
 <br/>
@@ -172,19 +170,6 @@ cd Frontend
 npm install
 npm run dev
 ```
-
----
-
-## 🌐 Deployment
-
-### Vercel (Production)
-The project is optimized for deployment on Vercel with a single configuration (`vercel.json`).
-
-- **Frontend**: [https://access-2-education.vercel.app](https://access-2-education.vercel.app)
-- **Backend API**: [https://access-2-education.vercel.app/api](https://access-2-education.vercel.app/api)
-
-### Netlify (Demo Mode)
-You can still deploy the frontend in isolated **Demo Mode** on Netlify by setting `VITE_DEMO_MODE=true`.
 
 ---
 
