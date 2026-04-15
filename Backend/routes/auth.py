@@ -24,8 +24,16 @@ from passlib.context import CryptContext
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import random
 import string
-from limiter import limiter
+import sys
+import os
 
+# Add Backend and Root to path for direct execution
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+BACKEND_DIR = os.path.join(ROOT_DIR, "Backend")
+if ROOT_DIR not in sys.path: sys.path.append(ROOT_DIR)
+if BACKEND_DIR not in sys.path: sys.path.append(BACKEND_DIR)
+
+from limiter import limiter
 from database.db import get_db
 
 # Config se keys lo

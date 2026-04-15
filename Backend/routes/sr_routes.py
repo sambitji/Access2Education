@@ -14,10 +14,13 @@ from datetime import datetime
 import sys
 import os
 
-# Add ML module to path (same pattern as content.py)
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'ML'))
-from spaced_repetition import SM2Card, SpacedRepetitionEngine, Quality
+# Add Backend and Root to path for direct execution
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+BACKEND_DIR = os.path.join(ROOT_DIR, "Backend")
+if ROOT_DIR not in sys.path: sys.path.append(ROOT_DIR)
+if BACKEND_DIR not in sys.path: sys.path.append(BACKEND_DIR)
 
+from ML.spaced_repetition import SM2Card, SpacedRepetitionEngine, Quality
 from database.db import get_db
 from routes.auth import get_current_user
 

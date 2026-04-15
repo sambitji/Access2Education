@@ -1,7 +1,14 @@
 from fastapi import APIRouter
 import sys
-sys.path.append("../ml")
-from ML.predict_cluster import predict_student_cluster
+import os
+
+# Add Backend and Root to path for direct execution
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+BACKEND_DIR = os.path.join(ROOT_DIR, "Backend")
+if ROOT_DIR not in sys.path: sys.path.append(ROOT_DIR)
+if BACKEND_DIR not in sys.path: sys.path.append(BACKEND_DIR)
+
+from ML.predict_cluster import predict_learning_style
 
 router = APIRouter()
 
@@ -10,7 +17,7 @@ async def get_student_cluster(test_result: dict):
     """
     Receives aptitude test scores, returns learning style cluster
     """
-    learning_style = predict_student_cluster(test_result)
+    learning_style, _ = predict_learning_style(test_result)
     
     content_map = {
         "visual_learner": ["infographics", "video_lectures", "diagrams"],

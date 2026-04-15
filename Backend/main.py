@@ -11,6 +11,9 @@ from database.db import connect_db, disconnect_db
 from routes.auth    import router as auth_router
 from routes.test    import router as test_router
 from routes.content import router as content_router
+from routes.sr_routes import router as sr_router
+from routes.chatbot import router as chatbot_router
+from routes.cluster import router as cluster_router
 from config import settings
 from limiter import limiter
 from slowapi import _rate_limit_exceeded_handler
@@ -66,6 +69,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth_router)
 app.include_router(test_router)
 app.include_router(content_router)
+app.include_router(sr_router, prefix="/api/spaced-repetition", tags=["Spaced Repetition"])
+app.include_router(chatbot_router, prefix="/api/chatbot", tags=["Chatbot"])
+app.include_router(cluster_router, prefix="/api/cluster", tags=["Learning DNA"])
 
 @app.get("/api/health", tags=["Health"])
 async def health():

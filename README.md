@@ -99,10 +99,14 @@ edu-platform/
 │   └── recommender.py                   # Content recommendation engine class
 │
 ├── ⚙️ backend/
-│   ├── routes/                          # FastAPI endpoints (Auth, Test, Content)
+│   ├── routes/                          # FastAPI endpoints (Auth, Test, Content, SR, Chatbot)
+│   │   ├── sr_routes.py                 # Spaced Repetition Logic (Renamed for clarity)
+│   │   ├── chatbot.py                   # DeepSeek AI assistant routes
+│   │   ├── cluster.py                   # Learning Style prediction routes
+│   │   └── ...                          # Auth, Test, Content routers
 │   ├── models/                          # Pydantic schemas
 │   ├── database/db.py                   # MongoDB configuration
-│   └── main.py                          # FastAPI entry point
+│   └── main.py                          # FastAPI entry point (All routers registered)
 │
 ├── 🎨 frontend/src/
 │   ├── pages/                           # Home, Dashboard, Test, Learn
@@ -177,6 +181,19 @@ npm run dev
 
 ### Auth & Test Endpoints
 Full Swagger docs available at `http://localhost:8000/docs` when the backend is running.
+
+---
+
+## 🛠️ Developer & Debugging Support
+
+To make development easier, we've implemented a **Direct Execution** pattern for all backend route files. 
+
+You can now run individual route files directly for testing or debugging without manual `PYTHONPATH` configuration:
+```bash
+python Backend/routes/auth.py
+python Backend/routes/sr_routes.py
+```
+This automatically handles imports from the parent `Backend` and `ML` packages.
 
 ---
 
