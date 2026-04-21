@@ -10,31 +10,37 @@ The following diagram illustrates the seamless interaction between the Frontend,
 
 ```mermaid
 flowchart TD
-    subgraph Frontend ["React / Vite Frontend"]
-        A["Student Dashboard"] --> B["Aptitude Test"]
-        A --> C["AI Chatbot"]
-        A --> D["Spaced Repetition Review"]
+    subgraph Client ["Frontend (React/Vite)"]
+        F_Entry["App.jsx"] --> F_Admin["Dashboard.jsx"]
+        F_Admin --> F_Test["AptitudeTest.jsx"]
+        F_Admin --> F_Chat["Chatbot.jsx"]
+        F_Admin --> F_SR["SpacedRepetition.jsx"]
     end
 
-    subgraph Backend ["FastAPI Backend"]
-        B -->|Submit| E["Test Engine"]
-        E -->|Section Scores| F["ML Clustering Engine"]
-        F -->|"Learning Style Style (e.g. Visual)"| G["Student Profile"]
-        C -->|Query| H["DeepSeek AI Agent"]
-        D -->|Recall Quality| I["SM-2 Algorithm"]
+    subgraph Server ["Backend (FastAPI)"]
+        B_Main["main.py"] --> B_Auth["routes/auth.py"]
+        B_Main --> B_Test["routes/test.py"]
+        B_Main --> B_Chat["routes/chatbot.py"]
+        B_Main --> B_SR["routes/sr_routes.py"]
+        B_Main --> B_Cont["routes/content.py"]
+        
+        B_Main --> B_DB["database/db.py"]
+        B_Main --> B_Cfg["config.py"]
     end
 
-    subgraph Storage ["Database"]
-        G --> J[("MongoDB Atlas")]
-        I --> J
-        J -->|Personalized Curriculum| A
+    subgraph Intelligence ["ML & AI Logic"]
+        B_Test --> ML_Pred["ML/predict_cluster.py"]
+        B_Chat --> AI_Handler["AI Agent (DeepSeek)"]
+        B_SR --> ML_SR["ML/spaced_repetition.py"]
+        B_Cont --> ML_Rec["ML/recommender.py"]
+        
+        ML_Pred --> ML_Model["ML/models/ensemble.pkl"]
+        ML_Train["ML/train_cluster.py"] --> ML_Model
     end
 
-    subgraph ML_Layer ["ML Intelligence"]
-        F --> K["K-Means Cluster Models (.pkl)"]
-    end
-
-    H -->|Context-Aware Response| C
+    B_DB --> DB_Cloud[("MongoDB Atlas")]
+    
+    F_Entry <-->|REST API| B_Main
 ```
 
 ---
