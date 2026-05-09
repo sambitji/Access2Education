@@ -21,7 +21,8 @@ from typing import Optional
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 import bcrypt
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import random
 import string
 import sys
@@ -34,24 +35,17 @@ if ROOT_DIR not in sys.path: sys.path.append(ROOT_DIR)
 if BACKEND_DIR not in sys.path: sys.path.append(BACKEND_DIR)
 
 from limiter import limiter
-from database.db import get_db
+from database.db import get_db, User, RefreshToken, OTP
 
-# Config se keys lo
-try:
-    from config import settings
-    SECRET_KEY           = settings.SECRET_KEY
-    REFRESH_SECRET_KEY   = settings.REFRESH_SECRET_KEY
-    ALGORITHM            = settings.JWT_ALGORITHM
-    ACCESS_TOKEN_EXPIRE  = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    REFRESH_TOKEN_EXPIRE = settings.REFRESH_TOKEN_EXPIRE_DAYS
-    OTP_EXPIRE_MINUTES   = settings.OTP_EXPIRE_MINUTES
-except Exception:
-    SECRET_KEY           = "change-this-super-secret-key-in-production-min-32-chars"
-    REFRESH_SECRET_KEY   = "change-this-refresh-secret-key-in-production-min-32-chars"
-    ALGORITHM            = "HS256"
-    ACCESS_TOKEN_EXPIRE  = 30
-    REFRESH_TOKEN_EXPIRE = 7
-    OTP_EXPIRE_MINUTES   = 10
+# =============================================================
+# Config
+# =============================================================
+SECRET_KEY           = "9825b4130d23589b27a3c3f87376c66cf01844b7067d0f1a92df55c421713e71"
+REFRESH_SECRET_KEY   = "b8dffc24335f2bfc668b3b993b63fd8ce65a5f48f47f6bdfdab973a492df58b1"
+ALGORITHM            = "HS256"
+ACCESS_TOKEN_EXPIRE  = 30
+REFRESH_TOKEN_EXPIRE = 7
+OTP_EXPIRE_MINUTES   = 10
 
 # ── Router ─────────────────────────────────────────────────────
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -163,21 +157,17 @@ def generate_otp(length: int = 6) -> str:
     return "".join(random.choices(string.digits, k=length))
 
 
-def format_user_response(user: dict) -> dict:
+def format_user_response(user: User) -> dict:
     return {
-        "id":             str(user["_id"]),
-        "name":           user["name"],
-        "email":          user["email"],
-        "role":           user["role"],
-        "avatar_url":     user.get("avatar_url", ""),
-        "learning_style": user.get("learning_style", None),
-        "cluster_id":     user.get("cluster_id", None),
-        "is_verified":    user.get("is_verified", False),
-        "joined_at": (
-            user["joined_at"].isoformat()
-            if isinstance(user.get("joined_at"), datetime)
-            else user.get("joined_at", "")
-        ),
+        "id":             user.id,
+        "name":           user.name,
+        "email":          user.email,
+        "role":           user.role,
+        "avatar_url":     user.avatar_url,
+        "learning_style": user.learning_style,
+        "cluster_id":     user.cluster_id,
+        "is_verified":    user.is_verified,
+        "joined_at":      user.joined_at.isoformat() if user.joined_at else None,
     }
 
 
@@ -187,32 +177,32 @@ def format_user_response(user: dict) -> dict:
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: AsyncIOMotorDatabase = Depends(get_db),
-) -> dict:
+    db: AsyncSession = Depends(get_db),
+) -> User:
     payload = decode_access_token(token)
     user_id = payload.get("sub")
     if not user_id:
-        raise HTTPException(status_code=401, detail="Token mein user ID nahi mili.")
+        raise HTTPException(status_code=401, detail="Token mein user ID nahi mila.")
 
-    from bson import ObjectId
-    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User nahi mila.")
     return user
 
 
 async def get_current_student(
-    current_user: dict = Depends(get_current_user),
-) -> dict:
-    if current_user["role"] != "student":
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Sirf students yahan access kar sakte hain.")
     return current_user
 
 
 async def get_current_teacher(
-    current_user: dict = Depends(get_current_user),
-) -> dict:
-    if current_user["role"] != "teacher":
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if current_user.role != "teacher":
         raise HTTPException(status_code=403, detail="Sirf teachers yahan access kar sakte hain.")
     return current_user
 
@@ -238,51 +228,45 @@ async def send_otp_email(email: str, otp: str, name: str):
 # ROUTE 1 — REGISTER
 # =============================================================
 
-@router.post("/register", status_code=status.HTTP_201_CREATED,
-             summary="Naya student ya teacher register karo")
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 async def register(
     request: Request,
     body: RegisterRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    existing = await db["users"].find_one({"email": body.email.lower()})
-    if existing:
+    result = await db.execute(select(User).where(User.email == body.email.lower()))
+    if result.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"'{body.email}' se already ek account exist karta hai.",
         )
 
-    new_user = {
-        "name":           body.name.strip(),
-        "email":          body.email.lower().strip(),
-        "password_hash":  hash_password(body.password),
-        "role":           body.role,
-        "avatar_url":     "",
-        "learning_style": None,
-        "cluster_id":     None,
-        "is_verified":    False,
-        "total_completed": 0,
-        "joined_at":      datetime.now(timezone.utc),
-        "last_login":     None,
-    }
+    new_user = User(
+        name=body.name.strip(),
+        email=body.email.lower().strip(),
+        password_hash=hash_password(body.password),
+        role=body.role
+    )
+    
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
 
-    result        = await db["users"].insert_one(new_user)
-    new_user["_id"] = result.inserted_id
-
-    token_data    = {"sub": str(result.inserted_id), "role": body.role}
+    token_data    = {"sub": str(new_user.id), "role": new_user.role}
     access_token  = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    await db["refresh_tokens"].insert_one({
-        "user_id":    str(result.inserted_id),
-        "token":      refresh_token,
-        "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE),
-    })
+    new_rt = RefreshToken(
+        user_id=new_user.id,
+        token=refresh_token,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE)
+    )
+    db.add(new_rt)
+    await db.commit()
 
     return {
-        "message":       f"Registration successful! Welcome, {body.name}",
+        "message":       f"Registration successful! Welcome, {new_user.name}",
         "access_token":  access_token,
         "refresh_token": refresh_token,
         "token_type":    "bearer",
@@ -294,39 +278,30 @@ async def register(
 # ROUTE 2 — LOGIN
 # =============================================================
 
-@router.post("/login", response_model=TokenResponse,
-             summary="Email + password se login karo")
+@router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 async def login(
     request: Request,
     body: LoginRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    user = await db["users"].find_one({"email": body.email.lower()})
-    if not user:
-        raise HTTPException(status_code=404,
-                            detail="Is email se koi account nahi mila.")
+    result = await db.execute(select(User).where(User.email == body.email.lower()))
+    user = result.scalar_one_or_none()
+    
+    if not user or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Credentials galat hain.")
 
-    if not verify_password(body.password, user["password_hash"]):
-        raise HTTPException(status_code=401,
-                            detail="Password galat hai.")
-
-    await db["users"].update_one(
-        {"_id": user["_id"]},
-        {"$set": {"last_login": datetime.now(timezone.utc)}},
-    )
-
-    token_data    = {"sub": str(user["_id"]), "role": user["role"]}
+    token_data    = {"sub": str(user.id), "role": user.role}
     access_token  = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
-    await db["refresh_tokens"].delete_many({"user_id": str(user["_id"])})
-    await db["refresh_tokens"].insert_one({
-        "user_id":    str(user["_id"]),
-        "token":      refresh_token,
-        "created_at": datetime.now(timezone.utc),
-        "expires_at": datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE),
-    })
+    new_rt = RefreshToken(
+        user_id=user.id,
+        token=refresh_token,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE)
+    )
+    db.add(new_rt)
+    await db.commit()
 
     return {
         "access_token":  access_token,
@@ -343,12 +318,14 @@ async def login(
 @router.post("/token", include_in_schema=False)
 async def login_form(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    user = await db["users"].find_one({"email": form_data.username.lower()})
-    if not user or not verify_password(form_data.password, user["password_hash"]):
+    result = await db.execute(select(User).where(User.email == form_data.username.lower()))
+    user = result.scalar_one_or_none()
+    
+    if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Credentials galat hain.")
-    access_token = create_access_token({"sub": str(user["_id"]), "role": user["role"]})
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -359,7 +336,7 @@ async def login_form(
 @router.post("/refresh", summary="Refresh token se naya access token lo")
 async def refresh_token_route(
     body: RefreshRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     try:
         payload = jwt.decode(body.refresh_token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
@@ -369,7 +346,8 @@ async def refresh_token_route(
         raise HTTPException(status_code=401,
                             detail="Refresh token invalid ya expire ho gaya.")
 
-    stored = await db["refresh_tokens"].find_one({"token": body.refresh_token})
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token == body.refresh_token))
+    stored = result.scalar_one_or_none()
     if not stored:
         raise HTTPException(status_code=401,
                             detail="Refresh token revoke ho chuka hai.")
@@ -388,11 +366,16 @@ async def refresh_token_route(
 @router.post("/logout", summary="Logout — refresh token invalidate")
 async def logout(
     body: RefreshRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    result = await db["refresh_tokens"].delete_one({"token": body.refresh_token})
-    if result.deleted_count == 0:
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token == body.refresh_token))
+    refresh_token_obj = result.scalar_one_or_none()
+    
+    if not refresh_token_obj:
         raise HTTPException(status_code=400, detail="Token mila nahi.")
+    
+    await db.delete(refresh_token_obj)
+    await db.commit()
     return {"message": "Successfully logout ho gaye!"}
 
 
@@ -414,8 +397,8 @@ async def get_my_profile(
 @router.put("/me", summary="Profile update karo")
 async def update_profile(
     body: UpdateProfileRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     updates = {}
     if body.name:
@@ -426,7 +409,7 @@ async def update_profile(
         if not body.old_password:
             raise HTTPException(status_code=400,
                                 detail="Purana password bhi dena padega.")
-        if not verify_password(body.old_password, current_user["password_hash"]):
+        if not verify_password(body.old_password, current_user.password_hash):
             raise HTTPException(status_code=401,
                                 detail="Purana password galat hai.")
         updates["password_hash"] = hash_password(body.new_password)
@@ -434,10 +417,13 @@ async def update_profile(
     if not updates:
         raise HTTPException(status_code=400, detail="Koi update field nahi di.")
 
-    await db["users"].update_one({"_id": current_user["_id"]}, {"$set": updates})
-    updated_user = await db["users"].find_one({"_id": current_user["_id"]})
+    for key, value in updates.items():
+        setattr(current_user, key, value)
+    
+    await db.commit()
+    await db.refresh(current_user)
 
-    return {"message": "Profile update ho gaya!", "user": format_user_response(updated_user)}
+    return {"message": "Profile update ho gaya!", "user": format_user_response(current_user)}
 
 
 # =============================================================
@@ -450,25 +436,32 @@ async def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    user = await db["users"].find_one({"email": body.email.lower()})
+    result = await db.execute(select(User).where(User.email == body.email.lower()))
+    user = result.scalar_one_or_none()
     if not user:
         return {"message": "Agar ye email registered hai toh OTP bhej diya gaya hai."}
 
     otp = generate_otp()
-    await db["otps"].update_one(
-        {"email": body.email.lower()},
-        {"$set": {
-            "email":      body.email.lower(),
-            "otp":        otp,
-            "created_at": datetime.now(timezone.utc),
-            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRE_MINUTES),
-            "used":       False,
-        }},
-        upsert=True,
+    
+    # Delete existing OTP for this email
+    result = await db.execute(select(OTP).where(OTP.email == body.email.lower()))
+    existing_otp = result.scalar_one_or_none()
+    if existing_otp:
+        await db.delete(existing_otp)
+    
+    # Create new OTP
+    new_otp = OTP(
+        email=body.email.lower(),
+        otp=otp,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRE_MINUTES),
+        used=False
     )
-    background_tasks.add_task(send_otp_email, body.email, otp, user["name"])
+    db.add(new_otp)
+    await db.commit()
+    
+    background_tasks.add_task(send_otp_email, body.email, otp, user.name)
     return {"message": "OTP bhej diya gaya hai. Inbox check karo. (10 min valid)"}
 
 
@@ -479,34 +472,44 @@ async def forgot_password(
 @router.post("/reset-password", summary="OTP se naya password set karo")
 async def reset_password(
     body: ResetPasswordRequest,
-    db: AsyncIOMotorDatabase = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    otp_record = await db["otps"].find_one({"email": body.email.lower(), "used": False})
+    result = await db.execute(
+        select(OTP).where(
+            (OTP.email == body.email.lower()) & 
+            (OTP.used == False)
+        )
+    )
+    otp_record = result.scalar_one_or_none()
+    
     if not otp_record:
         raise HTTPException(status_code=400,
                             detail="OTP nahi mila ya already use ho chuka hai.")
 
-    expires_at = otp_record["expires_at"]
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if datetime.now(timezone.utc) > expires_at:
+    if datetime.now(timezone.utc) > otp_record.expires_at:
         raise HTTPException(status_code=400,
                             detail="OTP expire ho gaya. Dobara try karo.")
 
-    if otp_record["otp"] != body.otp:
+    if otp_record.otp != body.otp:
         raise HTTPException(status_code=400, detail="OTP galat hai.")
 
-    await db["users"].update_one(
-        {"email": body.email.lower()},
-        {"$set": {"password_hash": hash_password(body.new_password)}},
-    )
-    await db["otps"].update_one(
-        {"email": body.email.lower()},
-        {"$set": {"used": True}},
-    )
-
-    user = await db["users"].find_one({"email": body.email.lower()})
+    # Update password
+    result = await db.execute(select(User).where(User.email == body.email.lower()))
+    user = result.scalar_one_or_none()
     if user:
-        await db["refresh_tokens"].delete_many({"user_id": str(user["_id"])})
+        user.password_hash = hash_password(body.new_password)
+        await db.commit()
+    
+    # Mark OTP as used
+    otp_record.used = True
+    await db.commit()
+    
+    # Delete all refresh tokens for this user
+    if user:
+        result = await db.execute(select(RefreshToken).where(RefreshToken.user_id == user.id))
+        refresh_tokens = result.scalars().all()
+        for rt in refresh_tokens:
+            await db.delete(rt)
+        await db.commit()
 
     return {"message": "Password reset ho gaya! Ab naye password se login karo."}

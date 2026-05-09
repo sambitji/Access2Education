@@ -74,7 +74,11 @@ class Settings(BaseSettings):
 
     MONGODB_URL:       str = Field(
         default="mongodb://localhost:27017",
-        description="MongoDB connection string — local ya Atlas URL"
+        description="DEPRECATED: MongoDB connection string"
+    )
+    MYSQL_URL:         str = Field(
+        default="mysql+aiomysql://root:@Sambit01@localhost:3306/edu_platform",
+        description="MySQL connection string with async driver"
     )
     DATABASE_NAME:     str = Field(
         default="edu_platform",

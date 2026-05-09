@@ -3,6 +3,14 @@
 # Edu-Platform — FastAPI Application Entry Point
 # =============================================================
 
+import sys
+import os
+
+# Add Backend to path
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -45,9 +53,10 @@ app = FastAPI(
 )
 
 
-# =============================================================
-# CORS
-# =============================================================
+@app.on_event("startup")
+async def startup_event():
+    print("Startup event triggered...")
+    await connect_db()
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,11 +78,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth_router)
 app.include_router(test_router)
 app.include_router(content_router)
-app.include_router(sr_router, prefix="/api/spaced-repetition", tags=["Spaced Repetition"])
-app.include_router(chatbot_router, prefix="/api/chatbot", tags=["Chatbot"])
-app.include_router(cluster_router, prefix="/api/cluster", tags=["Learning DNA"])
+app.include_router(sr_router, prefix="/spaced-repetition", tags=["Spaced Repetition"])
+app.include_router(chatbot_router, prefix="/chatbot", tags=["Chatbot"])
+app.include_router(cluster_router, prefix="/cluster", tags=["Learning DNA"])
 
-@app.get("/api/health", tags=["Health"])
+@app.get("/health", tags=["Health"])
 async def health():
     return {"status": "healthy", "service": "Edu-Platform API"}
 

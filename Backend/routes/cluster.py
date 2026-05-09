@@ -12,7 +12,7 @@ from ML.predict_cluster import predict_learning_style
 
 router = APIRouter()
 
-@router.post("/cluster/predict")
+@router.post("/predict")
 async def get_student_cluster(test_result: dict):
     """
     Receives aptitude test scores, returns learning style cluster

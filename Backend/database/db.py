@@ -1,155 +1,151 @@
 # =============================================================
 # backend/database/db.py
-# Edu-Platform — MongoDB Connection & Database Setup
+# Edu-Platform — MySQL Connection & SQLAlchemy ORM Setup
 # =============================================================
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from fastapi import FastAPI
-from dotenv import load_dotenv
 import os
+from datetime import datetime, timezone
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Float, JSON, ForeignKey, Index, Text
+from dotenv import load_dotenv
 
 load_dotenv()
 
-# Config se values lo
-try:
-    from config import settings
-    MONGODB_URL   = settings.MONGODB_URL
-    DATABASE_NAME = settings.DATABASE_NAME
-    MONGO_TIMEOUT = settings.MONGO_TIMEOUT_MS
-    MONGO_MAX     = settings.MONGO_MAX_POOL
-    MONGO_MIN     = settings.MONGO_MIN_POOL
-except Exception:
-    # Fallback agar config load na ho
-    MONGODB_URL   = os.getenv("MONGODB_URL",   "mongodb://localhost:27017")
-    DATABASE_NAME = os.getenv("DATABASE_NAME", "edu_platform")
-    MONGO_TIMEOUT = 5000
-    MONGO_MAX     = 10
-    MONGO_MIN     = 1
+# Config
+MYSQL_URL = os.getenv("MYSQL_URL", "mysql+aiomysql://root:@Sambit01@localhost:3306/edu_platform")
 
+# SQLAlchemy Setup
+engine = create_async_engine(MYSQL_URL, echo=False)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+Base = declarative_base()
 
 # =============================================================
-# Global Client
+# Models
 # =============================================================
 
-class Database:
-    client:   AsyncIOMotorClient   = None
-    database: AsyncIOMotorDatabase = None
+class User(Base):
+    __tablename__ = "users"
 
+    id             = Column(Integer, primary_key=True, index=True)
+    name           = Column(String(60), nullable=False)
+    email          = Column(String(100), unique=True, index=True, nullable=False)
+    password_hash  = Column(String(255), nullable=False)
+    role           = Column(String(20), default="student")
+    avatar_url     = Column(String(255), default="")
+    learning_style = Column(String(50), nullable=True)
+    cluster_id     = Column(Integer, nullable=True)
+    is_verified    = Column(Boolean, default=False)
+    total_completed = Column(Integer, default=0)
+    joined_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_login     = Column(DateTime, nullable=True)
 
-db_instance = Database()
+    # Relationships
+    test_results = relationship("TestResult", back_populates="user", cascade="all, delete-orphan")
+    sr_cards     = relationship("SRCard", back_populates="user", cascade="all, delete-orphan")
 
+class TestResult(Base):
+    __tablename__ = "test_results"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    scores       = Column(JSON, nullable=False) # {'logical': 80, ...}
+    cluster      = Column(Integer, nullable=False)
+    learning_style = Column(String(50), nullable=False)
+    submitted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="test_results")
+
+class Progress(Base):
+    __tablename__ = "progress"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    content_id   = Column(String(50), nullable=False)
+    subject      = Column(String(50), nullable=False)
+    completed    = Column(Boolean, default=False)
+    score        = Column(Integer, default=0)
+    last_accessed = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        Index("idx_progress_user_content", "user_id", "content_id", unique=True),
+    )
+
+class SRCard(Base):
+    __tablename__ = "sr_cards"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    user_id        = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    concept_id     = Column(String(100), nullable=False)
+    concept_title  = Column(String(255), nullable=False)
+    subject        = Column(String(50), nullable=False)
+    
+    # SM-2 Fields
+    interval       = Column(Integer, default=0)
+    easiness       = Column(Float, default=2.5)
+    repetition     = Column(Integer, default=0)
+    next_review    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    learning_style = Column(Integer, default=0)
+    
+    user = relationship("User", back_populates="sr_cards")
+
+    __table_args__ = (
+        Index("idx_sr_user_concept", "user_id", "concept_id", unique=True),
+    )
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token      = Column(String(512), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime, nullable=False)
+
+class OTP(Base):
+    __tablename__ = "otps"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    email      = Column(String(100), index=True, nullable=False)
+    otp        = Column(String(6), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    expires_at = Column(DateTime, nullable=False)
+    used       = Column(Boolean, default=False, index=True)
+
+class SRReviewHistory(Base):
+    __tablename__ = "sr_review_history"
+
+    id             = Column(Integer, primary_key=True, index=True)
+    user_id        = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    concept_id     = Column(String(100), nullable=False)
+    quality        = Column(Integer, nullable=False)
+    interval_after = Column(Integer, nullable=False)
+    easiness_after = Column(Float, nullable=False)
+    reviewed_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 # =============================================================
-# Connect & Disconnect
+# DB Lifecycle & Dependency
 # =============================================================
 
 async def connect_db():
-    """MongoDB se connect karo — startup pe call hota hai."""
+    """MySQL tables create karo."""
+    print("MySQL se connect ho raha hai...")
     try:
-        # URL mask karo agar credentials hain
-        masked_url = MONGODB_URL
-        if "@" in MONGODB_URL:
-            # mongodb://user:pass@host -> mongodb://***@host
-            prefix = MONGODB_URL.split("@")[0]
-            if ":" in prefix:
-                head = prefix.split("://")[0]
-                masked_url = f"{head}://***@{MONGODB_URL.split('@')[1]}"
-        
-        print(f"MongoDB se connect ho raha hai: {masked_url}")
-
-        db_instance.client = AsyncIOMotorClient(
-            MONGODB_URL,
-            serverSelectionTimeoutMS = MONGO_TIMEOUT,
-            maxPoolSize              = MONGO_MAX,
-            minPoolSize              = MONGO_MIN,
-        )
-        db_instance.database = db_instance.client[DATABASE_NAME]
-
-        # Vercel mein ping crash rokne ke liye
-        await db_instance.client.admin.command("ping")
-        print(f"MongoDB connected! Database: '{DATABASE_NAME}'")
-
-        await create_indexes()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("MySQL connected aur Tables create ho gaye!")
     except Exception as e:
-        print(f"CRITICAL WARNING: MongoDB se connect nahi ho paye: {e}")
-        print("Production mein MONGODB_URL env var check karo!")
-        # Server crash nahi hoga, features degrade honge
-
+        print(f"CRITICAL ERROR (MySQL): {e}")
 
 async def disconnect_db():
-    """MongoDB connection band karo — shutdown pe call hota hai."""
-    if db_instance.client:
-        db_instance.client.close()
-        print("MongoDB connection band ho gaya.")
+    """Connection band karo."""
+    await engine.dispose()
+    print("MySQL connection band ho gaya.")
 
-
-# =============================================================
-# Indexes
-# =============================================================
-
-async def create_indexes():
-    """Saare collections ke indexes create karo."""
-    db = db_instance.database
-
-    # Users
-    await db["users"].create_index("email",          unique=True, name="idx_users_email")
-    await db["users"].create_index("role",                         name="idx_users_role")
-    await db["users"].create_index("learning_style",               name="idx_users_style")
-
-    # Test Results
-    await db["test_results"].create_index("user_id",                              name="idx_results_user")
-    await db["test_results"].create_index([("user_id", 1), ("submitted_at", -1)], name="idx_results_user_date")
-
-    # Progress
-    await db["progress"].create_index(
-        [("user_id", 1), ("content_id", 1)],
-        unique=True, name="idx_progress_user_content"
-    )
-    await db["progress"].create_index([("user_id", 1), ("completed", 1)], name="idx_progress_completed")
-    await db["progress"].create_index([("user_id", 1), ("subject",   1)], name="idx_progress_subject")
-
-    # Refresh Tokens
-    await db["refresh_tokens"].create_index("token",      unique=True,         name="idx_rt_token")
-    await db["refresh_tokens"].create_index("user_id",                         name="idx_rt_user")
-    await db["refresh_tokens"].create_index("expires_at", expireAfterSeconds=0, name="idx_rt_ttl")
-
-    # OTPs
-    await db["otps"].create_index("email",      unique=True,          name="idx_otps_email")
-    await db["otps"].create_index("expires_at", expireAfterSeconds=0, name="idx_otps_ttl")
-
-    print("Indexes create ho gaye!")
-
-
-# =============================================================
-# Dependency — Routes mein Depends(get_db) se use karo
-# =============================================================
-
-async def get_db() -> AsyncIOMotorDatabase:
-    """
-    FastAPI dependency.
-
-    Usage:
-        async def my_route(db: AsyncIOMotorDatabase = Depends(get_db)):
-            ...
-    """
-    return db_instance.database
-
-
-# =============================================================
-# Collection Helpers
-# =============================================================
-
-def get_users_collection():
-    return db_instance.database["users"]
-
-def get_test_results_collection():
-    return db_instance.database["test_results"]
-
-def get_progress_collection():
-    return db_instance.database["progress"]
-
-def get_refresh_tokens_collection():
-    return db_instance.database["refresh_tokens"]
-
-def get_otps_collection():
-    return db_instance.database["otps"]
+async def get_db():
+    """FastAPI Dependency for Session."""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
