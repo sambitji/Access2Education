@@ -35,10 +35,16 @@ from slowapi.errors import RateLimitExceeded
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Server starting...")
-    await connect_db()
+    try:
+        await connect_db()
+    except Exception as e:
+        print(f"Database connection failed during startup (normal for build): {e}")
     yield
     print("Server shutting down...")
-    await disconnect_db()
+    try:
+        await disconnect_db()
+    except Exception as e:
+        print(f"Database disconnect failed: {e}")
 
 
 # =============================================================
