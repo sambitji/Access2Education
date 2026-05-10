@@ -17,11 +17,9 @@ MYSQL_URL = os.getenv("MYSQL_URL", "").strip()
 if MYSQL_URL:
     DATABASE_URL = MYSQL_URL
 else:
-    tmp_dir = os.getenv("TMPDIR") or os.getenv("TMP") or os.getenv("TEMP") or "/tmp"
-    sqlite_path = os.path.join(tmp_dir, "edu_platform.db")
-    os.makedirs(os.path.dirname(sqlite_path), exist_ok=True)
-    DATABASE_URL = os.getenv("SQLITE_URL", f"sqlite+aiosqlite:///{sqlite_path}")
-    print(f"No MYSQL_URL configured. Falling back to SQLite at: {sqlite_path}")
+    # Use a simple path for Vercel compatibility
+    DATABASE_URL = "sqlite+aiosqlite:///edu_platform.db"
+    print(f"No MYSQL_URL configured. Falling back to SQLite: {DATABASE_URL}")
 
 # SQLAlchemy Setup
 engine = create_async_engine(DATABASE_URL, echo=False)
