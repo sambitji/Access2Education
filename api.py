@@ -14,20 +14,38 @@ if ROOT_DIR not in sys.path:
 if BACKEND_DIR not in sys.path:
     sys.path.append(BACKEND_DIR)
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
+print(f"Python path: {sys.path}")
+print(f"Current dir: {os.getcwd()}")
+print(f"Files in root: {os.listdir(ROOT_DIR) if os.path.exists(ROOT_DIR) else 'N/A'}")
+print(f"Files in Backend: {os.listdir(BACKEND_DIR) if os.path.exists(BACKEND_DIR) else 'N/A'}")
 
-from routes.auth    import router as auth_router
-from routes.test    import router as test_router
-from routes.content import router as content_router
-from routes.sr_routes import router as sr_router
-from routes.chatbot import router as chatbot_router
-from routes.cluster import router as cluster_router
-from config import settings
-from limiter import limiter
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
+try:
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    from contextlib import asynccontextmanager
+    print("FastAPI imports successful")
+except Exception as e:
+    print(f"FastAPI import error: {e}")
+
+try:
+    from routes.auth import router as auth_router
+    print("Auth router import successful")
+except Exception as e:
+    print(f"Auth router import error: {e}")
+
+try:
+    from config import settings
+    print("Config import successful")
+except Exception as e:
+    print(f"Config import error: {e}")
+
+try:
+    from limiter import limiter
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    print("Limiter imports successful")
+except Exception as e:
+    print(f"Limiter import error: {e}")
 
 
 # =============================================================
