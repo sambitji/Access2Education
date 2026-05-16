@@ -20,7 +20,7 @@ export default function TestResult() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/test/result")
+    api.get("/test/results")
       .then((r) => setResult(r.data))
       .catch(() => navigate("/test"))
       .finally(() => setLoading(false));
@@ -29,9 +29,17 @@ export default function TestResult() {
   if (loading) return <LoadingSpinner fullScreen message="Loading result..." />;
   if (!result)  return null;
 
-  const { scores, learning_style, style_details,
-          days_until_retake, can_retake,
-          confidence, correct_answers, total_marks, out_of, ml_mode } = result;
+  const latest = result.latest || {};
+  const { scores = { total: 0, logical: 0, verbal: 0, numerical: 0, memory: 0, attention: 0 }, style: learning_style, details: style_details } = latest;
+  const {
+    days_until_retake = 0,
+    can_retake = true,
+    confidence = null,
+    correct_answers = 0,
+    total_marks = 0,
+    out_of = 500,
+    ml_mode = null,
+  } = result;
 
   const cfg = STYLE_CONFIG[learning_style] || STYLE_CONFIG.visual_learner;
 

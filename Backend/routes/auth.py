@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import random
 import string
+import uuid
 import sys
 import os
 
@@ -127,14 +128,20 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(data: dict) -> str:
     payload = data.copy()
-    payload["exp"]  = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE)
+    issued_at = datetime.now(timezone.utc)
+    payload["exp"] = issued_at + timedelta(minutes=ACCESS_TOKEN_EXPIRE)
+    payload["iat"] = issued_at
+    payload["jti"] = str(uuid.uuid4())
     payload["type"] = "access"
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def create_refresh_token(data: dict) -> str:
     payload = data.copy()
-    payload["exp"]  = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE)
+    issued_at = datetime.now(timezone.utc)
+    payload["exp"] = issued_at + timedelta(days=REFRESH_TOKEN_EXPIRE)
+    payload["iat"] = issued_at
+    payload["jti"] = str(uuid.uuid4())
     payload["type"] = "refresh"
     return jwt.encode(payload, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
 

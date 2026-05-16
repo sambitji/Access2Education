@@ -35,7 +35,7 @@ const useAuthStore = create((set) => ({
 
   setLearningStyle: (learning_style, cluster_id) =>
     set((state) => {
-      const user = state.user ? { ...state.user, learning_style } : null;
+      const user = state.user ? { ...state.user, learning_style, cluster_id } : null;
       if (user) {
         localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
       }

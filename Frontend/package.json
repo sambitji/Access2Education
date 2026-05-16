@@ -6,6 +6,7 @@
   "description": "Edu-Platform: AI-powered personalized learning frontend",
   "scripts": {
     "dev": "vite",
+    "dev:demo": "vite --mode demo",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.jsx --report-unused-disable-directives",

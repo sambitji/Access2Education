@@ -158,12 +158,18 @@ async def submit_test(
     
     return {
         "message": "Test submitted successfully",
+        "learning_style": style,
+        "cluster_id": cluster_id,
         "result": {
             "score_summary": scores,
             "learning_style": style,
             "details": _style_details(style)
         }
     }
+
+@router.get("/result")
+async def get_result_alias(current_user: User = Depends(get_current_student), db: AsyncSession = Depends(get_db)):
+    return await get_results(current_user=current_user, db=db)
 
 @router.get("/results")
 async def get_results(current_user: User = Depends(get_current_student), db: AsyncSession = Depends(get_db)):
