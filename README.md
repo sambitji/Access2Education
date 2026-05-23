@@ -1,12 +1,18 @@
-# Access2Education — AI-Powered Personalized Learning Platform
+# Access2Education
 
-Access2Education is a cutting-edge, full-stack educational platform designed to revolutionize the way students learn. By leveraging **Machine Learning (ML)** for learning-style clustering, the **SM-2 Spaced Repetition Algorithm** for long-term memory retention, and **AI Tutoring**, it adapts it's curriculum to every student's unique "Learning DNA."
+Access2Education is a concise full-stack platform offering personalized learning recommendations, assessments, and revision scheduling.
 
----
+Core features
+- FastAPI backend serving content, authentication, chatbot, and spaced-repetition endpoints.
+- React (Vite) frontend with student dashboard, tests, and chat UI.
+- ML utilities for clustering and recommendations.
+- Data stored in CSV/JSON and a MongoDB datastore.
 
-## 🚀 System Architecture & Workflow
+Quick start (development)
+- Backend: install Python deps and run `uvicorn main:app` from `Backend/`.
+- Frontend: run `npm install` and `npm run dev` from `Frontend/`.
 
-The following diagram illustrates the seamless interaction between the Frontend, Backend, ML Engine, and Database.
+See below for file locations and details.
 
 ```mermaid
 flowchart TD
