@@ -7,7 +7,6 @@
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-![EduPlatform Banner](https://via.placeholder.com/900x300/0f172a/6366f1?text=Access2Education+-+AI+Powered+Learning)
 
 ## Table of contents
 - [Features](#features)
@@ -15,7 +14,6 @@
 - [Setup](#setup)
 - [API Docs](#api-docs)
 - [ML Pipeline](#ml-pipeline)
-- [Screenshots](#screenshots)
 
 ## ✨ Features
 
