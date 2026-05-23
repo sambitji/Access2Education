@@ -1,111 +1,88 @@
 # Access2Education
 
-Access2Education is a concise full-stack platform offering personalized learning recommendations, assessments, and revision scheduling.
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.4-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-Core features
-- FastAPI backend serving content, authentication, chatbot, and spaced-repetition endpoints.
-- React (Vite) frontend with student dashboard, tests, and chat UI.
-- ML utilities for clustering and recommendations.
-- Data stored in CSV/JSON and a MongoDB datastore.
+![EduPlatform Banner](https://via.placeholder.com/900x300/0f172a/6366f1?text=Access2Education+-+AI+Powered+Learning)
 
-Quick start (development)
-- Backend: install Python deps and run `uvicorn main:app` from `Backend/`.
-- Frontend: run `npm install` and `npm run dev` from `Frontend/`.
+## Table of contents
+- [Features](#features)
+- [Architecture](#architecture)
+- [Setup](#setup)
+- [API Docs](#api-docs)
+- [ML Pipeline](#ml-pipeline)
+- [Screenshots](#screenshots)
 
-See below for file locations and details.
+## ✨ Features
 
-```mermaid
-flowchart TD
-    subgraph Client ["Frontend (React/Vite)"]
-        F_Entry["App.jsx"] --> F_Admin["Dashboard.jsx"]
-        F_Admin --> F_Test["AptitudeTest.jsx"]
-        F_Admin --> F_Chat["Chatbot.jsx"]
-        F_Admin --> F_SR["SpacedRepetition.jsx"]
-    end
+| Feature | Description |
+|---|---|
+| 🧠 **Aptitude Test** | 25 questions, 5 sections, ~30 minutes — auto-scored cognitive assessment |
+| 🧩 **ML Clustering** | Voting ensemble (GB + SVM + LR) for student profiling and learning-style detection |
+| 🎯 **Personalized Recommendations** | Content scoring (0–100) and progression-aware suggestions |
+| 🤖 **AI Chatbot** | Lecture summarizer + Q&A assistant integration |
+| 📊 **Progress Dashboard** | Subject-wise charts and completion tracking |
+| 🔒 **Secure Auth** | JWT dual-token scheme with OTP-based password reset |
 
-    subgraph Server ["Backend (FastAPI)"]
-        B_Main["main.py"] --> B_Auth["routes/auth.py"]
-        B_Main --> B_Test["routes/test.py"]
-        B_Main --> B_Chat["routes/chatbot.py"]
-        B_Main --> B_SR["routes/sr_routes.py"]
-        B_Main --> B_Cont["routes/content.py"]
-        
-        B_Main --> B_DB["database/db.py"]
-        B_Main --> B_Cfg["config.py"]
-    end
+## Architecture
 
-    subgraph Intelligence ["ML & AI Logic"]
-        B_Test --> ML_Pred["ML/predict_cluster.py"]
-        B_Chat --> AI_Handler["AI Agent (DeepSeek)"]
-        B_SR --> ML_SR["ML/spaced_repetition.py"]
-        B_Cont --> ML_Rec["ML/recommender.py"]
-        
-        ML_Pred --> ML_Model["ML/models/ensemble.pkl"]
-        ML_Train["ML/train_cluster.py"] --> ML_Model
-    end
+Client (React/Vite) ⇄ Backend (FastAPI) ⇄ ML modules
 
-    B_DB --> DB_Cloud[("MongoDB Atlas")]
-    
-    F_Entry <-->|REST API| B_Main
+- API entry: `Backend/main.py` and `Backend/routes/`
+- Database: MySQL (replace earlier MongoDB references) — connection code and migration scripts located under `Backend/database/`
+- ML: `ML/` and `Backend/ML/` for training and inference
+
+## Setup
+
+1. Backend (Windows example)
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r Backend/requirements_backend.txt
+cd Backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
----
+2. Frontend
 
-## ✨ Key Features
+```bash
+cd Frontend
+npm install
+npm run dev -- --host 0.0.0.0
+```
 
-### 🧠 Adaptive Learning DNA (ML Clustering)
-The platform doesn't just teach—it learns about you. Upon entry, students take a multi-dimensional aptitude test. Our **K-Means Clustering model** analyzes results across Logical, Verbal, Numerical, Memory, and Attention scores to categorize the student into one of four distinct learning styles:
-- **Visual Learner**: Prioritizes diagrams and video lectures.
-- **Conceptual Thinker**: Focuses on deep theory and case studies.
-- **Practice-Based**: emphasizes hands-on coding and projects.
-- **Step-by-Step**: Follows structured, sequential notes.
+3. Environment
+- Set a MySQL connection string (example): `DATABASE_URL=mysql+pymysql://user:pass@host:3306/dbname`
 
-### 📅 Smart Revision (SM-2 Spaced Repetition)
-We use the **SuperMemo-2 (SM-2)** algorithm to optimize your memory. The system tracks your performance on every topic and calculates the exact date you need to revise it to prevent the "forgetting curve."
+## API Docs
 
-### 🤖 AI Tutor (DeepSeek Integration)
-Integrated with the **DeepSeek-V3** model, our AI chatbot acts as a 24/7 personal tutor, answering complex questions, explaining code, and providing hints based on the student's current progress.
+- See `Backend/routes/` for endpoints. Run the backend and visit `/docs` for interactive OpenAPI UI.
 
----
+## ML Pipeline
 
-## 🛠️ Technology Stack
+- Training and clustering scripts: `ML/train_cluster.py`, predictions: `ML/predict_cluster.py`.
 
-- **Frontend**: React (Vite), Tailwind CSS, Framer Motion, Lucide Icons.
-- **Backend**: FastAPI (Python), Motor (Async MongoDB), Pydantic.
-- **Machine Learning**: Scikit-learn, Numpy, Joblib (Ensemble Clustering).
-- **Database**: MongoDB Atlas.
-- **Deployment**: Vercel (Monorepo setup).
+## Project layout
 
----
-
-## 🌐 Deployment (Vercel)
-
-This project is configured as a Vercel-ready monorepo.
-
-### Configuration & Deployment
-1. **Repository Linking**: Connect this repository to your **Vercel** account.
-2. **Environment Setup**: In the Vercel Project Settings, add the required environment variables:
-   - Database Connection Strings (`MONGODB_URL`).
-   - Security Secrets (`SECRET_KEY`).
-3. **Trigger Build**: Vercel will use the `vercel.json` orchestration to deploy the full-stack application.
-
----
-
-## 📁 Project Structure
-
-```text
+```
 Access2Education/
-├── Backend/            # FastAPI Server, Routes, and DB logic
-├── Frontend/           # React/Vite Application
-├── ML/                 # Training scripts and Pickled Models (.pkl)
-├── data/               # Metadata and datasets
-├── Dockerfile.backend  # Self-hosting Docker config
-└── vercel.json         # Vercel Monorepo Router
+├── Backend/            # FastAPI server and DB integration (MySQL)
+├── Frontend/           # React/Vite application
+├── ML/                 # Model training & inference
+├── data/               # Datasets and metadata
+└── vercel.json
 ```
 
----
+## License
 
-## 👨‍💻 Author
-**Sambit** — [GitHub](https://github.com/sambitji)
+MIT — see LICENSE
 
-*"Accessing Quality Education for Everyone"*
+## Author
+
+Sambit — https://github.com/sambitji
+
