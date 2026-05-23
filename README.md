@@ -31,7 +31,7 @@
 Client (React/Vite) ⇄ Backend (FastAPI) ⇄ ML modules
 
 - API entry: `Backend/main.py` and `Backend/routes/`
-- Database: MySQL (replace earlier MongoDB references) — connection code and migration scripts located under `Backend/database/`
+- Database: MySQL — connection code and migration scripts located under `Backend/database/`
 - ML: `ML/` and `Backend/ML/` for training and inference
 
 ## Setup
