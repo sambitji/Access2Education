@@ -86,3 +86,86 @@ MIT — see LICENSE
 
 Sambit — https://github.com/sambitji
 
+---
+
+## System Architecture & Workflow
+
+The following diagram illustrates the interaction between the Frontend, Backend, ML Engine, and Database.
+
+```mermaid
+flowchart TD
+	subgraph Client ["Frontend (React/Vite)"]
+		F_Entry["App.jsx"] --> F_Admin["Dashboard.jsx"]
+		F_Admin --> F_Test["AptitudeTest.jsx"]
+		F_Admin --> F_Chat["Chatbot.jsx"]
+		F_Admin --> F_SR["SpacedRepetition.jsx"]
+	end
+
+	subgraph Server ["Backend (FastAPI)"]
+		B_Main["main.py"] --> B_Auth["routes/auth.py"]
+		B_Main --> B_Test["routes/test.py"]
+		B_Main --> B_Chat["routes/chatbot.py"]
+		B_Main --> B_SR["routes/sr_routes.py"]
+		B_Main --> B_Cont["routes/content.py"]
+        
+		B_Main --> B_DB["database/db.py"]
+		B_Main --> B_Cfg["config.py"]
+	end
+
+	subgraph Intelligence ["ML & AI Logic"]
+		B_Test --> ML_Pred["ML/predict_cluster.py"]
+		B_Chat --> AI_Handler["AI Agent (DeepSeek)"]
+		B_SR --> ML_SR["ML/spaced_repetition.py"]
+		B_Cont --> ML_Rec["ML/recommender.py"]
+        
+		ML_Pred --> ML_Model["ML/models/ensemble.pkl"]
+		ML_Train["ML/train_cluster.py"] --> ML_Model
+	end
+
+	B_DB --> DB_Cloud[("MySQL")]
+    
+	F_Entry <-->|REST API| B_Main
+```
+
+---
+
+## Key Features
+
+### Adaptive Learning DNA (ML Clustering)
+Students take an aptitude test; a clustering pipeline profiles learning styles using ensemble models (K-Means / voting ensemble) across multiple cognitive dimensions.
+
+### Smart Revision (SM-2 Spaced Repetition)
+The SM-2 algorithm powers spaced repetition scheduling for optimized retention and revision reminders.
+
+### AI Tutor (Chatbot)
+An integrated AI assistant provides Q&A, lecture summarization, and context-aware help.
+
+## Technology Stack
+
+- **Frontend**: React (Vite), Tailwind CSS
+- **Backend**: FastAPI (Python), Pydantic
+- **Machine Learning**: scikit-learn, numpy, joblib
+- **Database**: MySQL (connection code under `Backend/database/`)
+- **Deployment**: Vercel / containerized options (Dockerfiles included)
+
+## Deployment notes
+
+- Configure environment variables such as `DATABASE_URL` (MySQL) and `SECRET_KEY`.
+- For API docs, run the backend and visit `/docs` for OpenAPI UI.
+
+## Project structure
+
+```
+Access2Education/
+├── Backend/            # FastAPI Server, Routes, and DB logic (MySQL)
+├── Frontend/           # React/Vite Application
+├── ML/                 # Training scripts and Pickled Models (.pkl)
+├── data/               # Metadata and datasets
+├── Dockerfile.backend  # Self-hosting Docker config
+└── vercel.json         # Vercel Monorepo Router
+```
+
+---
+
+If you want I can further reformat sections, add back untranslated Hindi/notes, or include the original longer narrative — tell me which parts to prioritise.
+
