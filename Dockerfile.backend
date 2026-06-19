@@ -10,5 +10,5 @@ COPY ML/ ./ML/
 
 EXPOSE 8000
 
-# Production command using Gunicorn with Uvicorn workers
-CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:8000", "--timeout", "120"]
+# Production command using Gunicorn for Django WSGI application
+CMD ["gunicorn", "-w", "4", "django_project.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "120"]
