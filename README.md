@@ -89,43 +89,7 @@ Sambit — https://github.com/sambitji
 ## System Architecture & Workflow
 
 The following diagram illustrates the interaction between the Frontend, Backend, ML Engine, and Database.
-
-```mermaid
-flowchart TD
-	subgraph Client ["Frontend (React/Vite)"]
-		F_Entry["App.jsx"] --> F_Admin["Dashboard.jsx"]
-		F_Admin --> F_Test["AptitudeTest.jsx"]
-		F_Admin --> F_Chat["Chatbot.jsx"]
-		F_Admin --> F_SR["SpacedRepetition.jsx"]
-	end
-
-	subgraph Server ["Backend (FastAPI)"]
-		B_Main["main.py"] --> B_Auth["routes/auth.py"]
-		B_Main --> B_Test["routes/test.py"]
-		B_Main --> B_Chat["routes/chatbot.py"]
-		B_Main --> B_SR["routes/sr_routes.py"]
-		B_Main --> B_Cont["routes/content.py"]
-        
-		B_Main --> B_DB["database/db.py"]
-		B_Main --> B_Cfg["config.py"]
-	end
-
-	subgraph Intelligence ["ML & AI Logic"]
-		B_Test --> ML_Pred["ML/predict_cluster.py"]
-		B_Chat --> AI_Handler["AI Agent (DeepSeek)"]
-		B_SR --> ML_SR["ML/spaced_repetition.py"]
-		B_Cont --> ML_Rec["ML/recommender.py"]
-        
-		ML_Pred --> ML_Model["ML/models/ensemble.pkl"]
-		ML_Train["ML/train_cluster.py"] --> ML_Model
-	end
-
-	B_DB --> DB_Cloud[("MySQL")]
-    
-	F_Entry <-->|REST API| B_Main
-```
-
----
+<img width="8761" height="4793" alt="diagram (2)" src="https://github.com/user-attachments/assets/bdad325a-6bd1-4bf9-8320-8b979068ad8a" />
 
 ## Key Features
 
